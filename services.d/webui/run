@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bash
+
+export WEBUI_PORT="${WEBUI_PORT:-8083}"
+export LISTS_DIR="${LISTS_DIR:-/app/data/config/lists}"
+
+exec s6-setuidgid abc python3 /app/scripts/webui/server.py

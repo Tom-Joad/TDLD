@@ -1,0 +1,13 @@
+#!/usr/bin/with-contenv bash
+
+HOTFOLDER_IN="${HOTFOLDER_IN:-/app/data/hotfolder/input}"
+HOTFOLDER_OUT="${HOTFOLDER_OUT:-/app/data/hotfolder/output}"
+HOTFOLDER_PROCESSED="${HOTFOLDER_PROCESSED:-/app/data/hotfolder/processed}"
+
+# directories are created (and given the same ownership/permissions as
+# /app/data/output) by populatevolume.sh during custom-init
+mkdir -p "$HOTFOLDER_IN" "$HOTFOLDER_OUT" "$HOTFOLDER_PROCESSED"
+
+export HOTFOLDER_IN HOTFOLDER_OUT HOTFOLDER_PROCESSED
+
+exec s6-setuidgid abc /app/scripts/hotfolder/watch.sh
