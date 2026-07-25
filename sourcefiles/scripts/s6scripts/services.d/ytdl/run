@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bash
+
+if [ "${AUTO_UPDATE_YTDLP:-false}" = "true" ]; then
+    python3 -m pip install --break-system-packages -U yt-dlp
+fi
+
+exec s6-setuidgid abc /app/data/scripts/ytdl.sh
