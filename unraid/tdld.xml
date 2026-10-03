@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>tdld</Name>
+  <Repository>ghcr.io/tom-joad/tdld:latest</Repository>
+  <Registry>https://ghcr.io</Registry>
+  <Network>bridge</Network>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/Tom-Joad/TDLD/issues</Support>
+  <Project>https://github.com/Tom-Joad/TDLD</Project>
+  <TemplateURL>https://raw.githubusercontent.com/Tom-Joad/TDLD/main/unraid/tdld.xml</TemplateURL>
+  <WebUI>http://[IP]:[PORT:8083]/</WebUI>
+  <Overview>
+    yt-dlp on a timer: polls three link lists (audio only, channels, playlists) and downloads new
+    videos with yt-dlp and ffmpeg. A small web UI edits the lists, starts single downloads and
+    shows the logs. A hotfolder converts dropped video files to mp3. For YouTube, put exported
+    browser cookies into /config/ytdlpconfig/cookies.txt (see the project README).
+  </Overview>
+  <Category>Downloaders: MediaApp:Video</Category>
+  <ExtraParams>--security-opt no-new-privileges</ExtraParams>
+  <Config Name="Web UI" Target="8083" Default="8083" Mode="tcp" Description="Web UI for the download lists and logs. No login: don't expose it to the internet." Type="Port" Display="always" Required="true" Mask="false"/>
+  <Config Name="Config" Target="/config" Default="/mnt/user/appdata/tdld" Mode="rw" Description="Lists, yt-dlp configs, cookies.txt, download archives, logs and the download script" Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Downloads" Target="/downloads" Default="/mnt/user/media/youtube" Mode="rw" Description="Downloaded media, in audioonly/, channels/ and playlists/" Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Hotfolder" Target="/hotfolder" Default="/mnt/user/media/hotfolder" Mode="rw" Description="Optional: video files dropped into input/ are converted to mp3 in output/" Type="Path" Display="always" Required="false" Mask="false"/>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User that owns new files (nobody)" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group for new files (users)" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="UMASK" Target="UMASK" Default="002" Mode="" Description="002: new files are writable for the users group, e.g. over SMB" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="TZ" Target="TZ" Default="Europe/Berlin" Mode="" Description="Timezone" Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="SLEEP_INTERVAL" Target="SLEEP_INTERVAL" Default="3600" Mode="" Description="Seconds between download-list runs" Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="AUTO_UPDATE_YTDLP" Target="AUTO_UPDATE_YTDLP" Default="false" Mode="" Description="true: update yt-dlp once at every container start instead of waiting for a new image" Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="HOTFOLDER_INTERVAL" Target="HOTFOLDER_INTERVAL" Default="300" Mode="" Description="Seconds between hotfolder checks" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+</Container>
