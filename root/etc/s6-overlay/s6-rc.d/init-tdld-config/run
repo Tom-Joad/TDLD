@@ -1,0 +1,99 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+
+# Prepares /config (lists, yt-dlp configs, archives, logs, the download
+# script) and the data folders. Runs as root once per container start,
+# before the services.
+
+HOTFOLDER_IN=${HOTFOLDER_IN:-/hotfolder/input}
+HOTFOLDER_OUT=${HOTFOLDER_OUT:-/hotfolder/output}
+HOTFOLDER_PROCESSED=${HOTFOLDER_PROCESSED:-/hotfolder/processed}
+LISTS=(audioonly channels playlists)
+LEGACY=/app/data
+
+mkdir -p /config/lists /config/ytdlpconfig /config/archives /config/logs /config/scripts /config/cache \
+    /downloads /hotfolder
+
+# Up to 1.x everything lived in /app/data. If that is still mounted and
+# /config is new, take over the lists, the yt-dlp configs (with their paths
+# rewritten) and the download archives, so nothing is downloaded twice.
+if [[ -d ${LEGACY}/config/lists && ! -f /config/lists/channels.list ]]; then
+    echo "**** migrating ${LEGACY} to /config ****"
+    cp -R "${LEGACY}/config/lists/." /config/lists/
+    if [[ -d ${LEGACY}/archives ]]; then
+        cp -R "${LEGACY}/archives/." /config/archives/
+    fi
+    for file in "${LEGACY}"/config/ytdlpconfig/*; do
+        [[ -f ${file} ]] || continue
+        sed -e 's#/app/data/output#/downloads#g' \
+            -e 's#/app/data/config/#/config/#g' \
+            -e 's#/app/data/#/config/#g' \
+            "${file}" > "/config/ytdlpconfig/$(basename "${file}")"
+    done
+    if [[ -f ${LEGACY}/scripts/ytdl.sh ]]; then
+        echo "**** ${LEGACY}/scripts/ytdl.sh is not migrated, it uses the old paths. If you"
+        echo "**** changed it, carry your changes over to /config/scripts/ytdl.sh ****"
+    fi
+    if ! grep -qs ' /downloads ' /proc/mounts; then
+        echo "**** /downloads is not mapped: new downloads stay inside the container."
+        echo "**** Map your download folder (before: ${LEGACY}/output) to /downloads ****"
+    fi
+    # The old image made everything world-writable (777).
+    find /config/lists /config/archives /config/ytdlpconfig -type f -exec chmod 644 {} +
+fi
+
+for name in "${LISTS[@]}"; do
+    if [[ ! -f /config/lists/${name}.list ]]; then
+        touch "/config/lists/${name}.list"
+    fi
+    if [[ ! -f /config/ytdlpconfig/${name}.config ]]; then
+        cp "/defaults/ytdlpconfig/${name}.config" /config/ytdlpconfig/
+    fi
+done
+
+if [[ ! -f /config/ytdlpconfig/cookies.txt ]]; then
+    cat > /config/ytdlpconfig/cookies.txt <<'COOKIES'
+# Netscape HTTP Cookie File
+# Placeholder file. yt-dlp is configured to read cookies from this file
+# (see the --cookies line in the *.config files) to avoid YouTube's
+# "Sign in to confirm you're not a bot" errors. Replace this file with
+# cookies exported from a logged-in YouTube session, e.g. via the
+# "Get cookies.txt LOCALLY" browser extension. See the README for details.
+COOKIES
+fi
+
+if [[ ! -f /config/scripts/ytdl.sh ]]; then
+    cp /defaults/ytdl.sh /config/scripts/ytdl.sh
+fi
+
+# Updating yt-dlp is opt-in. It runs here rather than in svc-ytdl, so a
+# restarting service doesn't reinstall it each time.
+if [[ ${AUTO_UPDATE_YTDLP,,} == true ]]; then
+    echo "**** updating yt-dlp ****"
+    if ! python3 -m pip install --break-system-packages --no-cache-dir --quiet -U yt-dlp; then
+        echo "**** yt-dlp update failed, keeping $(yt-dlp --version) ****"
+    fi
+fi
+
+if [[ -z ${LSIO_NON_ROOT_USER} ]]; then
+    # /config only holds small files; downloads live in /downloads.
+    lsiown -R abc:abc /config
+
+    # Data folders that Docker created itself (a missing host folder or a
+    # fresh volume) belong to root, and abc couldn't write there. Only those
+    # are handed over; folders that already belong to someone else are left
+    # as they are.
+    for dir in /downloads /hotfolder; do
+        if [[ -d ${dir} && $(stat -c %u "${dir}") == 0 ]]; then
+            lsiown abc:abc "${dir}"
+        fi
+    done
+    for dir in "${HOTFOLDER_IN}" "${HOTFOLDER_OUT}" "${HOTFOLDER_PROCESSED}"; do
+        if [[ ! -d ${dir} ]]; then
+            mkdir -p "${dir}"
+            lsiown abc:abc "${dir}"
+        fi
+    done
+else
+    mkdir -p "${HOTFOLDER_IN}" "${HOTFOLDER_OUT}" "${HOTFOLDER_PROCESSED}"
+fi
