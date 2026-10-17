@@ -2,7 +2,7 @@
 # linuxserver.io's Alpine base: s6-overlay, PUID/PGID/UMASK/TZ, the abc
 # user and docker mods, as in every linuxserver.io container.
 # Pinned by digest (a multi-arch index); Dependabot proposes new digests.
-FROM ghcr.io/linuxserver/baseimage-alpine:3.24@sha256:f68ac194f40cfe528e5e9549a22623bf4effbfaf93fad834909d2d6c2abd3096
+FROM ghcr.io/linuxserver/baseimage-alpine:3.24@sha256:d2deff7a9aff1388bd79ded33a4efda6bd4b26358f9234a23deccba724738fea
 
 # VERSION and BUILD_DATE are passed in by the build workflow.
 ARG BUILD_DATE
