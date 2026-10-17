@@ -32,6 +32,9 @@ with cosign. To verify an image:
 
 ```bash
 cosign verify ghcr.io/tom-joad/tdld:latest \
-  --certificate-identity-regexp 'https://github.com/Tom-Joad/ytdldocker/' \
+  --certificate-identity-regexp 'https://github.com/Tom-Joad/TDLD/' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
+
+Images up to 2.0.2 were built in a separate build repository; for those, use
+`--certificate-identity-regexp 'https://github.com/Tom-Joad/ytdldocker/'`.

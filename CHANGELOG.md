@@ -4,6 +4,13 @@ All notable changes to this project are listed here. A change that needs
 action when upgrading (a renamed or removed setting, a different folder
 layout) only comes with a new major version.
 
+## [2.0.3] - 2026-10-17
+
+### Changed
+- Images are built and signed in this repository. To verify an image built
+  from 2.0.3 on, see the new `cosign verify` command in `SECURITY.md`.
+- New base image digest (`linuxserver/baseimage-alpine:3.24`).
+
 ## [2.0.2] - 2026-10-04
 
 ### Changed
