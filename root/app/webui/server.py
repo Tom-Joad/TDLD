@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import re
 import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
@@ -101,6 +102,37 @@ FIELD_TEMPLATE = """
 
 PROFILE_OPTION_TEMPLATE = '<option value="{key}">{label}</option>'
 
+# A manual download takes one web address, nothing else: a value starting
+# with "-" would reach yt-dlp as an option (--exec runs shell commands).
+URL_RE = re.compile(r"^https?://[^\s]+$", re.IGNORECASE)
+
+# No sniffing a page into something else, no framing by other sites (a
+# hidden button under someone else's page), no paths in the Referer.
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "frame-ancestors 'none'",
+    "Referrer-Policy": "same-origin",
+}
+
+
+def same_origin(headers):
+    """True unless a browser says the request comes from another site.
+
+    The web UI has no login, so without this check any page open in the
+    same browser could rewrite the lists or start downloads. Browsers send
+    Sec-Fetch-Site (or, older ones, Origin); scripts such as curl send
+    neither and pass.
+    """
+    site = headers.get("Sec-Fetch-Site", "")
+    if site:
+        return site in ("same-origin", "none")
+    origin = headers.get("Origin", "")
+    if not origin:
+        return True
+    netloc = urlsplit(origin).netloc.lower()
+    hosts = {headers.get("Host", ""), headers.get("X-Forwarded-Host", "")}
+    return netloc in {h.lower() for h in hosts if h}
+
 
 def list_path(key):
     return os.path.join(LISTS_DIR, f"{key}.list")
@@ -148,6 +180,8 @@ def start_download(profile, url):
                 "yt-dlp",
                 "--config-locations", config_path,
                 "--batch-file", "/dev/null",
+                # Everything after "--" is a URL, never an option.
+                "--",
                 url,
             ],
             stdout=log,
@@ -157,6 +191,11 @@ def start_download(profile, url):
 
 
 class Handler(BaseHTTPRequestHandler):
+    def end_headers(self):
+        for name, value in SECURITY_HEADERS.items():
+            self.send_header(name, value)
+        super().end_headers()
+
     def _render(self, banner=""):
         fields = "".join(
             FIELD_TEMPLATE.format(
@@ -184,6 +223,8 @@ class Handler(BaseHTTPRequestHandler):
             banner = '<div class="banner">Saved.</div>'
         elif "downloading=1" in self.path:
             banner = '<div class="banner">Download started, check the logs for progress.</div>'
+        elif "invalid=1" in self.path:
+            banner = '<div class="banner">Not started: enter one web address starting with http:// or https://.</div>'
         else:
             banner = ""
         self.send_response(200)
@@ -205,6 +246,12 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(page)
 
     def do_POST(self):
+        if not same_origin(self.headers):
+            self.send_response(403)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b"cross-site request refused\n")
+            return
         length = int(self.headers.get("Content-Length", 0))
         if length > MAX_BODY_SIZE:
             self.send_response(413)
@@ -227,8 +274,12 @@ class Handler(BaseHTTPRequestHandler):
     def _handle_download(self, data):
         url = data.get("url", [""])[0].strip()
         profile = data.get("profile", [""])[0].strip()
-        if url and profile in LISTS:
-            start_download(profile, url)
+        if not URL_RE.match(url) or profile not in LISTS:
+            self.send_response(303)
+            self.send_header("Location", "/?invalid=1")
+            self.end_headers()
+            return
+        start_download(profile, url)
         self.send_response(303)
         self.send_header("Location", "/?downloading=1")
         self.end_headers()
