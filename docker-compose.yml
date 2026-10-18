@@ -1,0 +1,26 @@
+# yt-dlp on a timer, with a web UI for the download lists and a video-to-mp3
+# hotfolder. docker compose up -d, then open http://localhost:8083.
+services:
+  tdld:
+    image: ghcr.io/tom-joad/tdld:latest
+    container_name: tdld
+    restart: unless-stopped
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      UMASK: ${UMASK:-022}
+      TZ: ${TZ:-Etc/UTC}
+    ports:
+      # The web UI has no login: keep it on the local network.
+      - "${TDLD_PORT:-8083}:8083"
+    volumes:
+      - ./config:/config
+      - ${DOWNLOADS_PATH:-./downloads}:/downloads
+      - ${HOTFOLDER_PATH:-./hotfolder}:/hotfolder
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -4,6 +4,26 @@ All notable changes to this project are listed here. A change that needs
 action when upgrading (a renamed or removed setting, a different folder
 layout) only comes with a new major version.
 
+## [2.0.4] - 2026-10-19
+
+### Security
+- **The web UI refuses requests from other web sites.** It has no login, so
+  any page open in the same browser could rewrite the lists and start
+  downloads. Scripts such as `curl` still work.
+- **A manual download takes only one `http://` or `https://` address.** A
+  value starting with `-` reached yt-dlp as an option; together with a list
+  that yt-dlp could be told to read as its configuration, a web page could
+  have made it run commands. Every page also says `nosniff` and can't be
+  framed by other sites.
+
+### Fixed
+- The hotfolder waits until a video hasn't changed for a minute, so a file
+  that is still being copied in is no longer converted half-way and moved.
+
+### Changed
+- New base image digest (`linuxserver/baseimage-alpine:3.24`).
+- A `docker-compose.yml` is in the repository.
+
 ## [2.0.3] - 2026-10-17
 
 ### Changed

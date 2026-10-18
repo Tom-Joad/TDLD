@@ -1,0 +1,7 @@
+# Local data and test folders
+/config/
+/downloads/
+/hotfolder/
+.env
+__pycache__/
+*.pyc

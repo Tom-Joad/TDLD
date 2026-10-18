@@ -56,6 +56,30 @@ done
 for p in ytdl.sh server.py watch.sh; do
     check docker exec "$NAME" pgrep -u "$PUID" -f "$p"
 done
+# The web UI: requests from other sites are refused, a value that isn't a
+# web address never reaches yt-dlp (it would be read as an option).
+post() { docker exec "$NAME" curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "$@"; }
+r=$(post -H 'Sec-Fetch-Site: cross-site' --data 'channels=x' http://127.0.0.1:8083/save)
+if [[ $r == 403* ]]; then echo "ok: cross-site save refused"; else echo "FAILED: cross-site save: $r"; fail=1; fi
+r=$(post -H 'Origin: https://evil.example' --data 'url=https://example.com&profile=channels' http://127.0.0.1:8083/download)
+if [[ $r == 403* ]]; then echo "ok: foreign Origin refused"; else echo "FAILED: foreign Origin: $r"; fail=1; fi
+r=$(post --data 'url=--version&profile=channels' http://127.0.0.1:8083/download)
+if [[ $r == *invalid=1* ]]; then echo "ok: option as URL refused"; else echo "FAILED: option as URL: $r"; fail=1; fi
+if docker exec "$NAME" test -e /config/logs/channels-manual.log; then
+    echo "FAILED: a refused download reached yt-dlp"; fail=1
+fi
+r=$(post -H 'Sec-Fetch-Site: same-origin' --data-urlencode 'channels=https://example.com/a' --data 'audioonly=&playlists=' http://127.0.0.1:8083/save)
+if [[ $r == 303* ]] && grep -q 'example.com/a' "$DIR/config/lists/channels.list"; then
+    echo "ok: the UI's own save works"
+else
+    echo "FAILED: own save: $r"; fail=1
+fi
+if docker exec "$NAME" curl -sI http://127.0.0.1:8083/ | grep -qi "frame-ancestors 'none'"; then
+    echo "ok: security headers"
+else
+    echo "FAILED: security headers"; fail=1
+fi
+
 if docker logs "$NAME" 2>&1 | grep -E 'Permission denied|No such file|fatal'; then
     echo "FAILED: errors in the log"; fail=1
 fi

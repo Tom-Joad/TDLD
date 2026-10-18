@@ -70,7 +70,9 @@ three lists (**Save All** writes straight to the `.list` files the download loop
 single download with one of the three profiles, and read the latest log lines.
 
 The web UI has no login. Don't expose it to the internet; put it behind a reverse proxy with
-authentication if you need access from outside your network.
+authentication if you need access from outside your network. It refuses changes that a browser
+sends from another web site, so a page open in the same browser can't edit the lists or start
+downloads, and a manual download takes only one `http://` or `https://` address.
 
 ## Hotfolder (video → mp3)
 
@@ -88,11 +90,11 @@ Pulling `ghcr.io/tom-joad/tdld:latest` retrieves the correct image for your arch
 
 | Architecture | Available | Tag |
 | :----: | :----: | ---- |
-| x86-64 | ✅ | latest / 2 / 2.0.0 |
-| arm64 | ✅ | latest / 2 / 2.0.0 |
+| x86-64 | yes | latest / 2 / 2.0.4 |
+| arm64 | yes | latest / 2 / 2.0.4 |
 
 `latest` follows every change; `2` stays on 2.x and never brings a change that needs action when
-upgrading; `2.0.0` is fixed. Releases with upgrade notes are listed under
+upgrading; `2.0.4` is fixed. Releases with upgrade notes are listed under
 [Releases](https://github.com/Tom-Joad/TDLD/releases).
 
 ## Usage
