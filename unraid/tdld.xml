@@ -29,5 +29,6 @@
   <Config Name="TZ" Target="TZ" Default="Europe/Berlin" Mode="" Description="Timezone" Type="Variable" Display="always" Required="false" Mask="false"/>
   <Config Name="SLEEP_INTERVAL" Target="SLEEP_INTERVAL" Default="3600" Mode="" Description="Seconds between download-list runs" Type="Variable" Display="always" Required="false" Mask="false"/>
   <Config Name="AUTO_UPDATE_YTDLP" Target="AUTO_UPDATE_YTDLP" Default="false" Mode="" Description="true: update yt-dlp once at every container start instead of waiting for a new image" Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="TDLD_ALLOWED_HOSTS" Target="TDLD_ALLOWED_HOSTS" Default="" Mode="" Description="Host names the web UI answers to besides IP addresses, single words (tower) and *.local, e.g. a reverse proxy name; comma-separated" Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="HOTFOLDER_INTERVAL" Target="HOTFOLDER_INTERVAL" Default="300" Mode="" Description="Seconds between hotfolder checks" Type="Variable" Display="advanced" Required="false" Mask="false"/>
 </Container>

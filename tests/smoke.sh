@@ -74,6 +74,19 @@ if [[ $r == 303* ]] && grep -q 'example.com/a' "$DIR/config/lists/channels.list"
 else
     echo "FAILED: own save: $r"; fail=1
 fi
+# DNS rebinding: a foreign host name is refused even as "same-origin"; the
+# names a LAN uses pass.
+r=$(post -H 'Host: attacker.example:8083' -H 'Sec-Fetch-Site: same-origin' --data 'channels=x' http://127.0.0.1:8083/save)
+if [[ $r == 403* ]]; then echo "ok: foreign host name refused"; else echo "FAILED: foreign host name: $r"; fail=1; fi
+r=$(docker exec "$NAME" curl -s -o /dev/null -w '%{http_code}' -H 'Host: attacker.example:8083' http://127.0.0.1:8083/)
+if [[ $r == 403 ]]; then echo "ok: foreign host name can't read the page"; else echo "FAILED: foreign host read: $r"; fail=1; fi
+for host in tower:8083 tower.local:8083 192.168.1.5:8083; do
+    r=$(docker exec "$NAME" curl -s -o /dev/null -w '%{http_code}' -H "Host: $host" http://127.0.0.1:8083/)
+    if [[ $r == 200 ]]; then echo "ok: host $host passes"; else echo "FAILED: host $host: $r"; fail=1; fi
+done
+# A broken body length is answered at once instead of holding the thread.
+r=$(post -H 'Content-Length: -1' --max-time 5 http://127.0.0.1:8083/save)
+if [[ $r == 400* ]]; then echo "ok: negative Content-Length refused"; else echo "FAILED: negative Content-Length: $r"; fail=1; fi
 if docker exec "$NAME" curl -sI http://127.0.0.1:8083/ | grep -qi "frame-ancestors 'none'"; then
     echo "ok: security headers"
 else

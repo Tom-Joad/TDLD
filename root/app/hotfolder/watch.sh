@@ -26,7 +26,7 @@ do
             MP3NAME="$FILENAME.mp3"
             DEST="$HOTFOLDER_OUT/$MP3NAME"
             echo "[hotfolder] converting $FILENAME -> $MP3NAME"
-            if ffmpeg -y -i "$SRC" -vn -acodec libmp3lame -q:a 2 "$DEST"; then
+            if ffmpeg -nostdin -y -i "$SRC" -vn -acodec libmp3lame -q:a 2 "$DEST"; then
                 mv "$SRC" "$HOTFOLDER_PROCESSED/$FILENAME"
                 echo "[hotfolder] done: $MP3NAME"
             else
