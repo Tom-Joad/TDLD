@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import ipaddress
 import os
 import re
 import subprocess
@@ -108,6 +109,17 @@ URL_RE = re.compile(r"^https?://[^\s]+$", re.IGNORECASE)
 
 # No sniffing a page into something else, no framing by other sites (a
 # hidden button under someone else's page), no paths in the Referer.
+# Host names a web site can't point at this server (DNS rebinding: a page
+# whose own name suddenly resolves to the LAN address would otherwise count
+# as same-origin and pass the cross-site check). IP addresses, localhost,
+# single-label names such as "tower" and the local suffixes below can't be
+# registered on the internet. Any other name, e.g. behind a reverse proxy,
+# has to be listed in TDLD_ALLOWED_HOSTS.
+LOCAL_SUFFIXES = (".local", ".lan", ".home.arpa", ".internal")
+ALLOWED_HOSTS = {
+    h.strip().lower().rstrip(".") for h in os.environ.get("TDLD_ALLOWED_HOSTS", "").split(",") if h.strip()
+}
+
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "frame-ancestors 'none'",
@@ -132,6 +144,30 @@ def same_origin(headers):
     netloc = urlsplit(origin).netloc.lower()
     hosts = {headers.get("Host", ""), headers.get("X-Forwarded-Host", "")}
     return netloc in {h.lower() for h in hosts if h}
+
+
+def host_name(host):
+    """The name part of a Host header, without port and brackets."""
+    host = host.strip().lower()
+    if host.startswith("["):
+        return host[1:host.find("]")] if "]" in host else host[1:]
+    if host.count(":") == 1:
+        host = host.rsplit(":", 1)[0]
+    return host.rstrip(".")
+
+
+def host_allowed(host):
+    name = host_name(host)
+    if not name:
+        # No Host header at all: an HTTP/1.0 script, never a browser.
+        return True
+    if name in ALLOWED_HOSTS or name == "localhost" or "." not in name or name.endswith(LOCAL_SUFFIXES):
+        return True
+    try:
+        ipaddress.ip_address(name)
+    except ValueError:
+        return False
+    return True
 
 
 def list_path(key):
@@ -213,7 +249,21 @@ class Handler(BaseHTTPRequestHandler):
             banner=banner, fields=fields, profile_options=profile_options, log_links=log_links
         ).encode("utf-8")
 
+    def _refuse(self, status, message):
+        self.send_response(status)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(message.encode("utf-8") + b"\n")
+
+    def _host_ok(self):
+        if host_allowed(self.headers.get("Host", "")):
+            return True
+        self._refuse(403, "unknown host name: add it to TDLD_ALLOWED_HOSTS")
+        return False
+
     def do_GET(self):
+        if not self._host_ok():
+            return
         path = urlsplit(self.path)
         if path.path == "/log":
             self._handle_log_view(parse_qs(path.query))
@@ -246,16 +296,20 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(page)
 
     def do_POST(self):
-        if not same_origin(self.headers):
-            self.send_response(403)
-            self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(b"cross-site request refused\n")
+        if not self._host_ok():
             return
-        length = int(self.headers.get("Content-Length", 0))
+        if not same_origin(self.headers):
+            self._refuse(403, "cross-site request refused")
+            return
+        # A missing, negative or non-numeric length used to hang the request
+        # thread or end in a traceback.
+        raw_length = self.headers.get("Content-Length", "0").strip()
+        if not raw_length.isdigit():
+            self._refuse(400, "bad Content-Length")
+            return
+        length = int(raw_length)
         if length > MAX_BODY_SIZE:
-            self.send_response(413)
-            self.end_headers()
+            self._refuse(413, "request body too large")
             return
         body = self.rfile.read(length).decode("utf-8", errors="replace")
         data = parse_qs(body, keep_blank_values=True)

@@ -2,6 +2,8 @@
 # shellcheck shell=bash
 
 if [[ -z ${LSIO_NON_ROOT_USER} ]]; then
+    # s6-setuidgid keeps root's HOME (/root), which abc can't read.
+    export HOME=/config
     exec s6-setuidgid abc bash /app/hotfolder/watch.sh
 else
     exec bash /app/hotfolder/watch.sh

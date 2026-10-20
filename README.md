@@ -7,10 +7,6 @@ TDLD is a self-contained [yt-dlp](https://github.com/yt-dlp/yt-dlp) container, b
 * serves a small web UI for editing those link lists, starting a single download and reading the logs
 * watches a "hotfolder" and converts dropped video files to `.mp3` on a timer
 
-> **About this repository:** TDLD is published here as an export of a private source repository and
-> is overwritten with every sync. Issues and security reports are handled here; pull requests
-> can't be merged directly, but are welcome as suggestions and are carried over by hand.
-
 ## Table of contents
 
 * [Application setup](#application-setup)
@@ -21,9 +17,9 @@ TDLD is a self-contained [yt-dlp](https://github.com/yt-dlp/yt-dlp) container, b
 * [Usage](#usage)
 * [Parameters](#parameters)
 * [User / group identifiers](#user--group-identifiers)
-* [Upgrading from 1.x](#upgrading-from-1x)
+* [Upgrading](#upgrading)
 * [Support info](#support-info)
-* [Building locally](#building-locally)
+* [Building locally and running the tests](#building-locally-and-running-the-tests)
 
 ## Application setup
 
@@ -70,9 +66,17 @@ three lists (**Save All** writes straight to the `.list` files the download loop
 single download with one of the three profiles, and read the latest log lines.
 
 The web UI has no login. Don't expose it to the internet; put it behind a reverse proxy with
-authentication if you need access from outside your network. It refuses changes that a browser
-sends from another web site, so a page open in the same browser can't edit the lists or start
-downloads, and a manual download takes only one `http://` or `https://` address.
+authentication if you need access from outside your network. It protects itself against web
+pages open in the same browser:
+
+* It refuses changes that a browser sends from another web site, so such a page can't edit the
+  lists or start downloads.
+* It only answers to host names a web site can't take over: IP addresses, `localhost`, single
+  words such as `tower`, and names ending in `.local`, `.lan`, `.home.arpa` or `.internal`.
+  Without this, a page whose own name suddenly points at your server (DNS rebinding) would count
+  as the web UI itself. To open it under another name, e.g. behind a reverse proxy, list that
+  name in `TDLD_ALLOWED_HOSTS`; other names get `403 unknown host name`.
+* A manual download takes only one `http://` or `https://` address.
 
 ## Hotfolder (video → mp3)
 
@@ -90,11 +94,11 @@ Pulling `ghcr.io/tom-joad/tdld:latest` retrieves the correct image for your arch
 
 | Architecture | Available | Tag |
 | :----: | :----: | ---- |
-| x86-64 | yes | latest / 2 / 2.0.4 |
-| arm64 | yes | latest / 2 / 2.0.4 |
+| x86-64 | yes | latest / 3 / 3.0.0 |
+| arm64 | yes | latest / 3 / 3.0.0 |
 
-`latest` follows every change; `2` stays on 2.x and never brings a change that needs action when
-upgrading; `2.0.4` is fixed. Releases with upgrade notes are listed under
+`latest` follows every change; `3` stays on 3.x and never brings a change that needs action when
+upgrading; `3.0.0` is fixed. Releases with upgrade notes are listed under
 [Releases](https://github.com/Tom-Joad/TDLD/releases).
 
 ## Usage
@@ -140,10 +144,10 @@ docker run -d \
 
 ### Unraid
 
-Add `https://github.com/Tom-Joad/TDLD` under **Template repositories** at the bottom of the
-**Docker** tab and save, then **Add Container** and pick `tdld` from the template list.
-Alternatively, save [`unraid/tdld.xml`](unraid/tdld.xml) as
-`/boot/config/plugins/dockerMan/templates-user/my-tdld.xml` on the flash drive.
+Install it from **Community Applications** (search for `tdld`). Alternatively, save
+[`unraid/tdld.xml`](unraid/tdld.xml) as
+`/boot/config/plugins/dockerMan/templates-user/my-tdld.xml` on the flash drive and pick `tdld`
+under **Docker** → **Add Container**.
 
 The template is set up with `PUID=99`, `PGID=100` (Unraid's `nobody:users`) and `UMASK=002`, so new
 files are writable for the `users` group, e.g. over SMB. Point **Downloads** at a media share
@@ -170,6 +174,7 @@ IDs of your DSM user (`id <user>` over SSH).
 | `-e AUTO_UPDATE_YTDLP=false` | `true`: update yt-dlp with pip once at every container start, instead of waiting for a new image |
 | `-e HOTFOLDER_INTERVAL=300` | Seconds between hotfolder checks |
 | `-e WEBUI_PORT=8083` | Port the web UI listens on inside the container |
+| `-e TDLD_ALLOWED_HOSTS=` | Further host names for the web UI, comma-separated (e.g. `tdld.example.com` behind a reverse proxy); see [Web UI](#web-ui) |
 | `-e HOTFOLDER_IN=/hotfolder/input` | Folder watched for new video files |
 | `-e HOTFOLDER_OUT=/hotfolder/output` | Where converted `.mp3` files are written |
 | `-e HOTFOLDER_PROCESSED=/hotfolder/processed` | Where source files are moved after conversion |
@@ -192,7 +197,16 @@ uid=1000(youruser) gid=1000(youruser) groups=1000(youruser)
 over when Docker created them (they belong to root); folders that already belong to someone else
 are left as they are.
 
-## Upgrading from 1.x
+## Upgrading
+
+### From 2.x
+
+3.0 only answers to host names a web site can't take over (see [Web UI](#web-ui)). Opening it by
+IP address, as `tower` or as `tower.local` works as before. If you open it under another name,
+for example through a reverse proxy, add that name to `TDLD_ALLOWED_HOSTS` before updating.
+The image tag `2` stays on 2.0.4; `latest` and `3` move on.
+
+### From 1.x
 
 2.0 moves everything out of `/app/data`, and `UID`/`GID` are replaced by `PUID`/`PGID` (the old
 variables never had an effect). To upgrade an existing container:
@@ -215,7 +229,7 @@ variables never had an effect). To upgrade an existing container:
 
 Changes are listed in the [changelog](CHANGELOG.md). Security problems: see [SECURITY.md](SECURITY.md).
 
-## Building locally
+## Building locally and running the tests
 
 ```bash
 git clone https://github.com/Tom-Joad/TDLD.git
@@ -225,8 +239,13 @@ docker build \
   --pull \
   --build-arg VERSION=local \
   --build-arg BUILD_DATE="$(date -u +%Y-%m-%d)" \
-  -t ghcr.io/tom-joad/tdld:latest .
+  -t tdld:test -f dockerfile .
+tests/smoke.sh tdld:test
 ```
+
+The image keeps pip and installs yt-dlp into the system Python instead of a separate
+environment, unlike other linuxserver.io-based images: `AUTO_UPDATE_YTDLP` needs pip to update
+yt-dlp at container start.
 
 ## License
 

@@ -14,6 +14,13 @@ LABEL org.opencontainers.image.source="https://github.com/Tom-Joad/TDLD" \
       org.opencontainers.image.description="yt-dlp on a timer, with a web UI for the download lists and a video-to-mp3 hotfolder" \
       org.opencontainers.image.licenses="MIT"
 
+# A failing init step stops the container instead of leaving it up but
+# broken.
+ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
+
+# Unlike other images, pip stays and yt-dlp lives in the system Python, not in
+# a /lsiopy venv: AUTO_UPDATE_YTDLP updates yt-dlp with pip at container
+# start, which a removed pip couldn't do.
 RUN \
  apk add --no-cache \
 	bash \

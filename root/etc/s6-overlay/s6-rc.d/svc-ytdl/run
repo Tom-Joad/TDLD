@@ -4,6 +4,8 @@
 # The script lives in /config so it can be customised; run it through bash so
 # a lost executable bit doesn't stop the downloads.
 if [[ -z ${LSIO_NON_ROOT_USER} ]]; then
+    # s6-setuidgid keeps root's HOME (/root), which abc can't read.
+    export HOME=/config
     exec s6-setuidgid abc bash /config/scripts/ytdl.sh
 else
     exec bash /config/scripts/ytdl.sh

@@ -18,6 +18,8 @@ Of particular interest:
 - the web UI (port 8083, no login): anything that lets a request read or
   write files outside the lists and logs, or run commands other than the
   configured yt-dlp download
+- a way for a web page to reach the web UI despite the cross-site check
+  and the host name check (`TDLD_ALLOWED_HOSTS`)
 - cookies from `/config/ytdlpconfig/cookies.txt` ending up in logs or the image
 - files written with broader permissions or a different owner than
   `PUID`/`PGID`/`UMASK` allow
