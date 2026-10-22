@@ -21,8 +21,11 @@ ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
 # Unlike other images, pip stays and yt-dlp lives in the system Python, not in
 # a /lsiopy venv: AUTO_UPDATE_YTDLP updates yt-dlp with pip at container
 # start, which a removed pip couldn't do.
+# The upgrade picks up Alpine fixes newer than the pinned base image; apk add
+# alone leaves the packages the base image ships at its state.
 RUN \
- apk add --no-cache \
+ apk upgrade --no-cache \
+ && apk add --no-cache \
 	bash \
 	curl \
 	py3-pip \
