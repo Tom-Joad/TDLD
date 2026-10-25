@@ -5,6 +5,12 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
+## [3.0.2] - 2026-10-25
+
+### Security
+- Security updates of the distribution packages, picked up by rebuilding the image:
+  - `ffmpeg-libavcodec` 8.1.3-r0
+
 ## [3.0.1] - 2026-10-24
 
 ### Changed
@@ -136,5 +142,6 @@ upgrading**, see "Upgrading from 1.x" in the README.
 ## 07.05.2022
 - Initial release.
 
+[3.0.2]: https://github.com/Tom-Joad/TDLD/compare/v3.0.1...v3.0.2
 [3.0.1]: https://github.com/Tom-Joad/TDLD/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/Tom-Joad/TDLD/compare/v2.0.0...v3.0.0
