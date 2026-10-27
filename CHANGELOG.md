@@ -5,6 +5,12 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
+## [3.0.3] - 2026-10-27
+
+### Security
+- Security updates of the distribution packages, picked up by rebuilding the image:
+  - `python3` 3.14.10-r0 (CVE-2026-114583, CVE-2026-115557, CVE-2026-12345)
+
 ## [3.0.2] - 2026-10-26
 
 ### Security
@@ -144,6 +150,7 @@ upgrading**, see "Upgrading from 1.x" in the README.
 ## 07.05.2022
 - Initial release.
 
+[3.0.3]: https://github.com/Tom-Joad/TDLD/compare/v3.0.2...v3.0.3
 [3.0.2]: https://github.com/Tom-Joad/TDLD/compare/v3.0.1...v3.0.2
 [3.0.1]: https://github.com/Tom-Joad/TDLD/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/Tom-Joad/TDLD/compare/v2.0.0...v3.0.0
