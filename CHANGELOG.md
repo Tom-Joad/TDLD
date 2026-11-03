@@ -5,6 +5,12 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
+## [3.0.6] - 2026-11-03
+
+### Security
+- Security updates of the distribution packages, picked up by rebuilding the image:
+  - `libexpat` 2.10.0-r0 (CVE-2026-117610, CVE-2026-118370)
+
 ## [3.0.5] - 2026-10-31
 
 ### Changed
@@ -163,6 +169,7 @@ upgrading**, see "Upgrading from 1.x" in the README.
 ## 07.05.2022
 - Initial release.
 
+[3.0.6]: https://github.com/Tom-Joad/TDLD/compare/v3.0.5...v3.0.6
 [3.0.5]: https://github.com/Tom-Joad/TDLD/compare/v3.0.4...v3.0.5
 [3.0.4]: https://github.com/Tom-Joad/TDLD/compare/v3.0.3...v3.0.4
 [3.0.3]: https://github.com/Tom-Joad/TDLD/compare/v3.0.2...v3.0.3
