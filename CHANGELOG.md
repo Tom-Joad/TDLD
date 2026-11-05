@@ -5,6 +5,17 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
+## [Unreleased]
+
+### Added
+- A `3.1`-style tag (major and minor version) next to `3`, `latest` and the
+  full version.
+
+### Changed
+- Images are built from releases only, no longer from every change on the
+  main branch. `latest` and `3` now move with each release, and a full
+  version tag such as `3.1.0` always names exactly that release.
+
 ## [3.0.6] - 2026-11-03
 
 ### Security
