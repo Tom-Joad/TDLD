@@ -25,7 +25,7 @@ env:
   # Release pull request: where the version lives. Same values in
   # security-release.yml.
   CHANGELOG: CHANGELOG.md
-  VERSION_FILES: "VERSION"
+  VERSION_FILES: ""
   TAG_PREFIX: "v"
 
 jobs:
