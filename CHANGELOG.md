@@ -176,3 +176,4 @@ upgrading**, see "Upgrading from 1.x" in the README.
 [3.0.2]: https://github.com/Tom-Joad/TDLD/compare/v3.0.1...v3.0.2
 [3.0.1]: https://github.com/Tom-Joad/TDLD/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/Tom-Joad/TDLD/compare/v2.0.0...v3.0.0
+[2.0.0]: https://github.com/Tom-Joad/TDLD/releases/tag/v2.0.0
