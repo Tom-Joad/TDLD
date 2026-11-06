@@ -5,7 +5,7 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
-## [Unreleased]
+## [3.1.0] - 2026-11-06
 
 ### Added
 - A `3.1`-style tag (major and minor version) next to `3`, `latest` and the
@@ -180,6 +180,7 @@ upgrading**, see "Upgrading from 1.x" in the README.
 ## 07.05.2022
 - Initial release.
 
+[3.1.0]: https://github.com/Tom-Joad/TDLD/compare/v3.0.6...v3.1.0
 [3.0.6]: https://github.com/Tom-Joad/TDLD/compare/v3.0.5...v3.0.6
 [3.0.5]: https://github.com/Tom-Joad/TDLD/compare/v3.0.4...v3.0.5
 [3.0.4]: https://github.com/Tom-Joad/TDLD/compare/v3.0.3...v3.0.4
