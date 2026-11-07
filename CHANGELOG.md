@@ -5,6 +5,12 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
+## [3.1.1] - 2026-11-07
+
+### Changed
+- Updated dependencies:
+  - linuxserver/baseimage-alpine from `52106d1` to `d07ad0e`
+
 ## [3.1.0] - 2026-11-06
 
 ### Added
@@ -180,6 +186,7 @@ upgrading**, see "Upgrading from 1.x" in the README.
 ## 07.05.2022
 - Initial release.
 
+[3.1.1]: https://github.com/Tom-Joad/TDLD/compare/v3.1.0...v3.1.1
 [3.1.0]: https://github.com/Tom-Joad/TDLD/compare/v3.0.6...v3.1.0
 [3.0.6]: https://github.com/Tom-Joad/TDLD/compare/v3.0.5...v3.0.6
 [3.0.5]: https://github.com/Tom-Joad/TDLD/compare/v3.0.4...v3.0.5
