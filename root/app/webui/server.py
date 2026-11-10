@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+import contextlib
 import ipaddress
 import os
 import re
 import subprocess
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
@@ -18,6 +20,8 @@ MAX_BODY_SIZE = 1024 * 1024  # 1 MiB, more than enough for a list of URLs
 LOG_FILES = {f"{key}.log": f"{label} (scheduled)" for key, label in LISTS.items()}
 LOG_FILES.update({f"{key}-manual.log": f"{label} (manual)" for key, label in LISTS.items()})
 LOG_TAIL_LINES = 500
+# A client that stays silent for this long is dropped, so it can't hold a thread.
+REQUEST_TIMEOUT = 30
 
 PAGE_TEMPLATE = """<!doctype html>
 <html>
@@ -182,13 +186,38 @@ def read_list(key):
         return f.read()
 
 
+# One lock per list: the server is threaded, and two saves at once must not mix.
+_list_locks = {key: threading.Lock() for key in LISTS}
+
+
 def write_list(key, content):
     lines = [line.rstrip() for line in content.replace("\r\n", "\n").split("\n")]
     while lines and lines[-1] == "":
         lines.pop()
-    with open(list_path(key), "w") as f:
-        for line in lines:
-            f.write(line + "\n")
+    path = list_path(key)
+    # Write a hidden temporary file next to the list and rename it over the
+    # list: the download script and yt-dlp never see an empty or half-written
+    # list, and a full disk or a crash leaves the old list in place.
+    # Under the lock nothing else writes this name; 0o666 lets the umask
+    # (UMASK) decide the mode of a new list.
+    tmp = os.path.join(os.path.dirname(path), f".{key}.list.tmp")
+    with _list_locks[key]:
+        try:
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o666)
+            with os.fdopen(fd, "w") as f:
+                for line in lines:
+                    f.write(line + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+            try:
+                os.chmod(tmp, os.stat(path).st_mode & 0o777)
+            except FileNotFoundError:
+                pass
+            os.replace(tmp, path)
+        finally:
+            # Gone after a successful rename; left over only after a failure.
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(tmp)
 
 
 def escape(s):
@@ -227,6 +256,8 @@ def start_download(profile, url):
 
 
 class Handler(BaseHTTPRequestHandler):
+    timeout = REQUEST_TIMEOUT
+
     def end_headers(self):
         for name, value in SECURITY_HEADERS.items():
             self.send_header(name, value)
@@ -303,15 +334,25 @@ class Handler(BaseHTTPRequestHandler):
             return
         # A missing, negative or non-numeric length used to hang the request
         # thread or end in a traceback.
+        # isdigit() also accepts characters such as "²", which int() rejects.
         raw_length = self.headers.get("Content-Length", "0").strip()
-        if not raw_length.isdigit():
+        if not re.fullmatch(r"[0-9]+", raw_length):
             self._refuse(400, "bad Content-Length")
             return
         length = int(raw_length)
         if length > MAX_BODY_SIZE:
             self._refuse(413, "request body too large")
             return
-        body = self.rfile.read(length).decode("utf-8", errors="replace")
+        try:
+            raw_body = self.rfile.read(length)
+        except OSError:
+            # The client stalled (timeout) or went away: drop the connection.
+            self.close_connection = True
+            return
+        if len(raw_body) < length:
+            self._refuse(400, "request body shorter than Content-Length")
+            return
+        body = raw_body.decode("utf-8", errors="replace")
         data = parse_qs(body, keep_blank_values=True)
 
         if self.path == "/download":
