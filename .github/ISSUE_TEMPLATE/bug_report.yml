@@ -32,7 +32,9 @@ body:
     id: log
     attributes:
       label: Log lines
-      description: The container log (`docker logs tdld`) around the problem.
+      description: |
+        The `starting` line at the top of the log (version and settings) and
+        the lines around the problem, redacted.
       render: text
   - type: textarea
     id: setup

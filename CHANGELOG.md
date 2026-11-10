@@ -5,6 +5,20 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
+## [Unreleased]
+
+### Changed
+- All of yt-dlp's dependencies (`brotli`, `certifi`, `requests`, `urllib3`,
+  `websockets` and the others the `default` extra pulls in) are pinned in
+  `requirements.txt`, so builds of the same tag install the same versions and
+  updates arrive as Dependabot pull requests. `AUTO_UPDATE_YTDLP` updates
+  yt-dlp at start as before.
+
+### Fixed
+- The Docker Compose comment and the Unraid template now list all host names
+  the web UI answers to without `TDLD_ALLOWED_HOSTS` (`localhost`, single
+  words, `*.local`, `*.lan`, `*.home.arpa`, `*.internal`), as the README does.
+
 ## [3.1.1] - 2026-11-07
 
 ### Changed
