@@ -72,8 +72,24 @@ if [[ ! -f /config/ytdlpconfig/cookies.txt ]]; then
 COOKIES
 fi
 
+# The copy is the user's to edit, so it is only replaced while it is still a
+# script an earlier release copied, unchanged. Without that, installations
+# would keep running the old loop forever. When a release changes
+# root/defaults/ytdl.sh, add the sha256 of the version it replaces here.
+OLD_YTDL_SHA256S=(
+    a8b90768b428dee03ed8f4c3f00dbcd3a935da7d5ffaf48dd7ed00192d06643e # 2.0.0 to 3.1.1
+)
 if [[ ! -f /config/scripts/ytdl.sh ]]; then
     cp /defaults/ytdl.sh /config/scripts/ytdl.sh
+elif ! cmp -s /defaults/ytdl.sh /config/scripts/ytdl.sh; then
+    current=$(sha256sum < /config/scripts/ytdl.sh)
+    if [[ " ${OLD_YTDL_SHA256S[*]} " == *" ${current%% *} "* ]]; then
+        cp /defaults/ytdl.sh /config/scripts/ytdl.sh
+        log init "/config/scripts/ytdl.sh updated to this version's script"
+    else
+        log_warn init "/config/scripts/ytdl.sh differs from this version's script (/defaults/ytdl.sh)." \
+            "Without its changes the scheduled run neither logs time stamps nor waits for a manual download"
+    fi
 fi
 
 # Updating yt-dlp is opt-in. It runs here rather than in svc-ytdl, so a

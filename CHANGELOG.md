@@ -38,8 +38,9 @@ comes with a new major version.
   scheduled run share a lock per profile (`/config/locks`). A manual download
   while one is running is refused with a message; a scheduled run waits for a
   manual one to finish. Finished manual downloads are reaped. The scheduled
-  script `/config/scripts/ytdl.sh` is only copied on first start: delete your
-  copy to get the new one if you haven't changed it.
+  script `/config/scripts/ytdl.sh` is replaced by the new one when it is the
+  unchanged copy of an earlier version; a copy you changed is kept, and the
+  start log says that it differs.
 - A manual log is moved to `<name>-manual.log.1` when it has grown past 5 MiB,
   and the web UI reads only the end of a log instead of the whole file.
 

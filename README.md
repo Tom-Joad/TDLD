@@ -33,7 +33,7 @@ container creates everything it needs on first start:
 | `/config/ytdlpconfig/cookies.txt` | YouTube cookies, see [bot-detection](#youtube-sign-in-to-confirm-youre-not-a-bot) |
 | `/config/archives` | yt-dlp download archives, so nothing is downloaded twice |
 | `/config/logs` | Per-list download logs (also shown in the web UI) |
-| `/config/scripts/ytdl.sh` | The download loop, copied on first start; edit it here to customise it |
+| `/config/scripts/ytdl.sh` | The download loop, copied on first start and updated while unchanged; edit it here to customise it (an edited copy is never replaced) |
 | `/downloads` | Downloaded media, in `audioonly/`, `channels/` and `playlists/` |
 | `/hotfolder` | `input/`, `output/` and `processed/` of the [hotfolder](#hotfolder-video--mp3) |
 
