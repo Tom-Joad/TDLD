@@ -5,3 +5,6 @@
 .env
 __pycache__/
 *.pyc
+
+# Claude Code's local settings: approved commands can hold tokens
+.claude/settings.local.json
