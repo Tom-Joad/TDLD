@@ -18,6 +18,12 @@ LABEL org.opencontainers.image.source="https://github.com/Tom-Joad/TDLD" \
 # broken.
 ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
 
+# The services' stdout is a pipe under s6, so Python would buffer the web
+# UI's log lines in 8 KiB blocks and lose them when the container restarts.
+# TDLD_VERSION is read by the init step for the "starting" line.
+ENV PYTHONUNBUFFERED=1 \
+    TDLD_VERSION=${VERSION:-unknown}
+
 # Unlike other images, pip stays and yt-dlp lives in the system Python, not in
 # a /lsiopy venv: AUTO_UPDATE_YTDLP updates yt-dlp with pip at container
 # start, which a removed pip couldn't do.

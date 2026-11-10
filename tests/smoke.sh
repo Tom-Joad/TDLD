@@ -45,6 +45,13 @@ if grep -q 'BASED ON IMAGES FROM LINUXSERVER\.IO' <<<"$banner" && ! grep -q 'Bas
 else
     echo "FAILED: TomJoad Images start banner"; fail=1
 fi
+# Every service logs time stamps, and the first line names the version.
+for pattern in '^\[[0-9-]+ [0-9:]+\] \[init\] TDLD [^ ]+ starting' \
+               '^\[[0-9-]+ [0-9:]+\] \[ytdl\] Sleeping' \
+               '^\[[0-9-]+ [0-9:]+\] \[hotfolder\] checking' \
+               '^\[[0-9-]+ [0-9:]+\] \[webui\] listening'; do
+    if grep -qE -- "$pattern" <<<"$banner"; then echo "ok: log line $pattern"; else echo "FAILED: log line $pattern"; fail=1; fi
+done
 for f in lists/audioonly.list lists/channels.list lists/playlists.list \
          ytdlpconfig/audioonly.config ytdlpconfig/cookies.txt scripts/ytdl.sh; do
     check test -f "$DIR/config/$f"
@@ -74,6 +81,20 @@ if [[ $r == 303* ]] && grep -q 'example.com/a' "$DIR/config/lists/channels.list"
 else
     echo "FAILED: own save: $r"; fail=1
 fi
+# A download that is running for a profile (here: a stand-in holding the
+# profile's lock, as ytdl.sh does) refuses a second one.
+docker exec -d --user abc "$NAME" flock /config/locks/playlists.lock sleep 20
+sleep 1
+r=$(post --data-urlencode 'url=https://example.com/v' --data 'profile=playlists' http://127.0.0.1:8083/download)
+if [[ $r == *busy=1* ]]; then echo "ok: download refused while one runs"; else echo "FAILED: download while one runs: $r"; fail=1; fi
+if docker exec "$NAME" test -e /config/logs/playlists-manual.log; then
+    echo "FAILED: a refused download reached yt-dlp"; fail=1
+fi
+if docker exec "$NAME" curl -s http://127.0.0.1:8083/ | grep -q 'Download running now: Playlists (scheduled)'; then
+    echo "ok: the page shows the running download"
+else
+    echo "FAILED: the page doesn't show the running download"; fail=1
+fi
 # DNS rebinding: a foreign host name is refused even as "same-origin"; the
 # names a LAN uses pass.
 r=$(post -H 'Host: attacker.example:8083' -H 'Sec-Fetch-Site: same-origin' --data 'channels=x' http://127.0.0.1:8083/save)
@@ -87,6 +108,8 @@ done
 # A broken body length is answered at once instead of holding the thread.
 r=$(post -H 'Content-Length: -1' --max-time 5 http://127.0.0.1:8083/save)
 if [[ $r == 400* ]]; then echo "ok: negative Content-Length refused"; else echo "FAILED: negative Content-Length: $r"; fail=1; fi
+r=$(post -H 'Content-Length: ²' --max-time 5 http://127.0.0.1:8083/save)
+if [[ $r == 400* ]]; then echo "ok: Unicode digit in Content-Length refused"; else echo "FAILED: Unicode digit in Content-Length: $r"; fail=1; fi
 if docker exec "$NAME" curl -sI http://127.0.0.1:8083/ | grep -qi "frame-ancestors 'none'"; then
     echo "ok: security headers"
 else

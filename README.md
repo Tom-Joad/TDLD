@@ -33,7 +33,7 @@ container creates everything it needs on first start:
 | `/config/ytdlpconfig/cookies.txt` | YouTube cookies, see [bot-detection](#youtube-sign-in-to-confirm-youre-not-a-bot) |
 | `/config/archives` | yt-dlp download archives, so nothing is downloaded twice |
 | `/config/logs` | Per-list download logs (also shown in the web UI) |
-| `/config/scripts/ytdl.sh` | The download loop, copied on first start; edit it here to customise it |
+| `/config/scripts/ytdl.sh` | The download loop, copied on first start and updated while unchanged; edit it here to customise it (an edited copy is never replaced) |
 | `/downloads` | Downloaded media, in `audioonly/`, `channels/` and `playlists/` |
 | `/hotfolder` | `input/`, `output/` and `processed/` of the [hotfolder](#hotfolder-video--mp3) |
 
@@ -41,7 +41,12 @@ Edit the lists by hand or via the [web UI](#web-ui) on port `8083`. Files in `/c
 changed or deleted are not overwritten; a deleted list or config file is recreated with the
 defaults on the next start.
 
-The download loop logs to the container log (`docker logs`) and to `/config/logs/*.log`.
+The download loop logs to the container log (`docker logs`) and to `/config/logs/*.log`. Lines
+in the container log start with the time (`[2026-11-10 12:00:00] [ytdl] …`); the first line,
+`TDLD <version> starting`, names the version and the settings, so include it in a bug report.
+
+Only one download runs per profile at a time: a scheduled run and "Download Now" share a lock, a
+manual download that finds the profile busy is refused, and the web UI shows what is running.
 
 ## YouTube "Sign in to confirm you're not a bot"
 

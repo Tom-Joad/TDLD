@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
+import contextlib
+import fcntl
 import ipaddress
 import os
 import re
 import subprocess
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
@@ -18,6 +22,15 @@ MAX_BODY_SIZE = 1024 * 1024  # 1 MiB, more than enough for a list of URLs
 LOG_FILES = {f"{key}.log": f"{label} (scheduled)" for key, label in LISTS.items()}
 LOG_FILES.update({f"{key}-manual.log": f"{label} (manual)" for key, label in LISTS.items()})
 LOG_TAIL_LINES = 500
+# How much of the end of a log is read to find those lines.
+LOG_TAIL_BYTES = 1024 * 1024
+# A manual log is moved to <name>.log.1 (replacing the older one) when a new
+# download starts and it has grown past this size.
+MANUAL_LOG_MAX_BYTES = 5 * 1024 * 1024
+# One lock file per profile, shared with the download script (ytdl.sh).
+LOCKS_DIR = os.environ.get("LOCKS_DIR", "/config/locks")
+# A client that stays silent for this long is dropped, so it can't hold a thread.
+REQUEST_TIMEOUT = 30
 
 PAGE_TEMPLATE = """<!doctype html>
 <html>
@@ -182,57 +195,176 @@ def read_list(key):
         return f.read()
 
 
+# One lock per list: the server is threaded, and two saves at once must not mix.
+_list_locks = {key: threading.Lock() for key in LISTS}
+
+
 def write_list(key, content):
     lines = [line.rstrip() for line in content.replace("\r\n", "\n").split("\n")]
     while lines and lines[-1] == "":
         lines.pop()
-    with open(list_path(key), "w") as f:
-        for line in lines:
-            f.write(line + "\n")
+    path = list_path(key)
+    # Write a hidden temporary file next to the list and rename it over the
+    # list: the download script and yt-dlp never see an empty or half-written
+    # list, and a full disk or a crash leaves the old list in place.
+    # Under the lock nothing else writes this name; 0o666 lets the umask
+    # (UMASK) decide the mode of a new list.
+    tmp = os.path.join(os.path.dirname(path), f".{key}.list.tmp")
+    with _list_locks[key]:
+        try:
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o666)
+            with os.fdopen(fd, "w") as f:
+                for line in lines:
+                    f.write(line + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+            try:
+                os.chmod(tmp, os.stat(path).st_mode & 0o777)
+            except FileNotFoundError:
+                pass
+            os.replace(tmp, path)
+        finally:
+            # Gone after a successful rename; left over only after a failure.
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(tmp)
 
 
 def escape(s):
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def stamp(message):
+    """A log line: "[YYYY-MM-DD HH:MM:SS] [webui] message"."""
+    return f"{time.strftime('[%Y-%m-%d %H:%M:%S]')} [webui] {message}"
+
+
+def log(message):
+    """One line in the container log.
+
+    Flushed at once: under s6 stdout is a pipe, and buffered lines would show
+    up late or be lost when the container stops.
+    """
+    print(stamp(message), flush=True)
+
+
 def read_log_tail(name):
     path = os.path.join(LOGS_DIR, name)
-    if not os.path.exists(path):
+    try:
+        # Only the end of the file is read, however large the log is.
+        with open(path, "rb") as f:
+            size = f.seek(0, os.SEEK_END)
+            f.seek(max(0, size - LOG_TAIL_BYTES))
+            data = f.read()
+    except FileNotFoundError:
         return "(no log yet)"
-    with open(path, "r", errors="replace") as f:
-        lines = f.readlines()
+    lines = data.decode("utf-8", errors="replace").splitlines(keepends=True)
+    if size > LOG_TAIL_BYTES:
+        lines = lines[1:]  # the first line is cut off
     return "".join(lines[-LOG_TAIL_LINES:])
 
 
+# Manual downloads that are running now, by profile.
+_running = {}
+_running_lock = threading.Lock()
+
+
+def lock_path(profile):
+    return os.path.join(LOCKS_DIR, f"{profile}.lock")
+
+
+def try_lock(profile):
+    """The profile's lock file, locked, or None if yt-dlp already runs on it."""
+    os.makedirs(LOCKS_DIR, exist_ok=True)
+    fd = os.open(lock_path(profile), os.O_RDWR | os.O_CREAT, 0o666)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(fd)
+        return None
+    return fd
+
+
+def running_profiles():
+    """Profiles with a download in progress: {profile: "manual" or "scheduled"}."""
+    state = {}
+    for profile in LISTS:
+        with _running_lock:
+            manual = profile in _running
+        if manual:
+            state[profile] = "manual"
+            continue
+        fd = try_lock(profile)
+        if fd is None:
+            state[profile] = "scheduled"
+        else:
+            os.close(fd)
+    return state
+
+
+def _reap(profile, proc):
+    code = proc.wait()
+    with _running_lock:
+        _running.pop(profile, None)
+    log(f"manual download for {profile} finished with exit code {code}")
+
+
 def start_download(profile, url):
+    """Start yt-dlp for one link. False if one already runs on this profile.
+
+    The lock is the one ytdl.sh takes for its scheduled run. The child
+    inherits it and keeps it until it exits.
+    """
     config_path = os.path.join(CONFIG_DIR, f"{profile}.config")
     log_path = os.path.join(LOGS_DIR, f"{profile}-manual.log")
     os.makedirs(LOGS_DIR, exist_ok=True)
-    with open(log_path, "a") as log:
-        log.write(f"[webui] Manual download requested: {url}\n")
-        log.flush()
-        subprocess.Popen(
-            [
-                "yt-dlp",
-                "--config-locations", config_path,
-                "--batch-file", "/dev/null",
-                # Everything after "--" is a URL, never an option.
-                "--",
-                url,
-            ],
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-        )
+    lock_fd = try_lock(profile)
+    if lock_fd is None:
+        return False
+    try:
+        try:
+            if os.path.getsize(log_path) > MANUAL_LOG_MAX_BYTES:
+                os.replace(log_path, log_path + ".1")
+        except FileNotFoundError:
+            pass
+        with open(log_path, "a") as logfile:
+            logfile.write(stamp(f"Manual download requested: {url}") + "\n")
+            logfile.flush()
+            proc = subprocess.Popen(
+                [
+                    "yt-dlp",
+                    "--config-locations", config_path,
+                    "--batch-file", "/dev/null",
+                    # Everything after "--" is a URL, never an option.
+                    "--",
+                    url,
+                ],
+                stdout=logfile,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+                pass_fds=(lock_fd,),
+            )
+    finally:
+        os.close(lock_fd)
+    with _running_lock:
+        _running[profile] = proc
+    # Waiting for the process reaps it; no zombies stay behind.
+    threading.Thread(target=_reap, args=(profile, proc), daemon=True).start()
+    return True
 
 
 class Handler(BaseHTTPRequestHandler):
+    timeout = REQUEST_TIMEOUT
+
     def end_headers(self):
         for name, value in SECURITY_HEADERS.items():
             self.send_header(name, value)
         super().end_headers()
 
     def _render(self, banner=""):
+        running = running_profiles()
+        if running:
+            names = ", ".join(f"{LISTS[key]} ({kind})" for key, kind in running.items())
+            banner += f'<div class="banner">Download running now: {names}.</div>'
         fields = "".join(
             FIELD_TEMPLATE.format(
                 label=label, filename=f"{key}.list", key=key, content=escape(read_list(key))
@@ -273,6 +405,8 @@ class Handler(BaseHTTPRequestHandler):
             banner = '<div class="banner">Saved.</div>'
         elif "downloading=1" in self.path:
             banner = '<div class="banner">Download started, check the logs for progress.</div>'
+        elif "busy=1" in self.path:
+            banner = '<div class="banner">Not started: a download is already running for this profile.</div>'
         elif "invalid=1" in self.path:
             banner = '<div class="banner">Not started: enter one web address starting with http:// or https://.</div>'
         else:
@@ -303,15 +437,25 @@ class Handler(BaseHTTPRequestHandler):
             return
         # A missing, negative or non-numeric length used to hang the request
         # thread or end in a traceback.
+        # isdigit() also accepts characters such as "²", which int() rejects.
         raw_length = self.headers.get("Content-Length", "0").strip()
-        if not raw_length.isdigit():
+        if not re.fullmatch(r"[0-9]+", raw_length):
             self._refuse(400, "bad Content-Length")
             return
         length = int(raw_length)
         if length > MAX_BODY_SIZE:
             self._refuse(413, "request body too large")
             return
-        body = self.rfile.read(length).decode("utf-8", errors="replace")
+        try:
+            raw_body = self.rfile.read(length)
+        except OSError:
+            # The client stalled (timeout) or went away: drop the connection.
+            self.close_connection = True
+            return
+        if len(raw_body) < length:
+            self._refuse(400, "request body shorter than Content-Length")
+            return
+        body = raw_body.decode("utf-8", errors="replace")
         data = parse_qs(body, keep_blank_values=True)
 
         if self.path == "/download":
@@ -333,18 +477,18 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Location", "/?invalid=1")
             self.end_headers()
             return
-        start_download(profile, url)
+        started = start_download(profile, url)
         self.send_response(303)
-        self.send_header("Location", "/?downloading=1")
+        self.send_header("Location", "/?downloading=1" if started else "/?busy=1")
         self.end_headers()
 
     def log_message(self, format, *args):
-        print("[webui] " + (format % args))
+        log(format % args)
 
 
 if __name__ == "__main__":
     os.makedirs(LISTS_DIR, exist_ok=True)
     port = int(os.environ.get("WEBUI_PORT", "8083"))
     server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
-    print(f"[webui] listening on 0.0.0.0:{port}, editing lists in {LISTS_DIR}")
+    log(f"listening on 0.0.0.0:{port}, editing lists in {LISTS_DIR}")
     server.serve_forever()

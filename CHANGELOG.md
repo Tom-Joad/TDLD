@@ -7,7 +7,23 @@ comes with a new major version.
 
 ## [Unreleased]
 
+### Added
+- Every log line has a time stamp (`[2026-11-10 12:00:00] [ytdl] …`), errors
+  and warnings start with `ERROR:` and `WARNING:`, and the log opens with a
+  `TDLD <version> starting` line with the settings that matter. The bug report
+  template asks for it.
+- The web UI shows which profile has a download running, scheduled or manual.
+
 ### Changed
+- Only one yt-dlp works on a profile at a time: "Download Now" and the
+  scheduled run share a lock per profile (`/config/locks`). A manual download
+  while one is running is refused with a message; a scheduled run waits for a
+  manual one to finish. Finished manual downloads are reaped. The scheduled
+  script `/config/scripts/ytdl.sh` is replaced by the new one when it is the
+  unchanged copy of an earlier version; a copy you changed is kept, and the
+  start log says that it differs.
+- A manual log is moved to `<name>-manual.log.1` when it has grown past 5 MiB,
+  and the web UI reads only the end of a log instead of the whole file.
 - All of yt-dlp's dependencies (`brotli`, `certifi`, `requests`, `urllib3`,
   `websockets` and the others the `default` extra pulls in) are pinned in
   `requirements.txt`, so builds of the same tag install the same versions and
@@ -15,6 +31,23 @@ comes with a new major version.
   yt-dlp at start as before.
 
 ### Fixed
+- Saving a download list no longer empties it first. The list is written to a
+  temporary file and renamed over the old one, one save at a time per list, so
+  a download run, a crash or a full disk can't see or leave an empty or cut-off
+  list.
+- The hotfolder no longer converts a file that is still being copied when the
+  copy tool kept the source's old modification time. A file counts as ready
+  when its size and modification time are the same as one round ago and its
+  status change time is older than the settle time.
+- The hotfolder writes each mp3 under a hidden temporary name and renames it
+  when ffmpeg succeeds, so a failed or interrupted conversion no longer leaves
+  a half-written mp3 that looks finished. A file that disappears between
+  listing and reading is skipped.
+- The web UI drops a client that stops sending its request body after 30
+  seconds instead of holding a thread for good, and answers a `Content-Length`
+  with characters such as `²` with `400` instead of a traceback.
+- The web UI's log lines are no longer buffered, so they appear at once in
+  `docker logs` and aren't lost when the container stops.
 - The Docker Compose comment and the Unraid template now list all host names
   the web UI answers to without `TDLD_ALLOWED_HOSTS` (`localhost`, single
   words, `*.local`, `*.lan`, `*.home.arpa`, `*.internal`), as the README does.
