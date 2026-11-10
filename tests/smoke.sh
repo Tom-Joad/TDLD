@@ -87,6 +87,8 @@ done
 # A broken body length is answered at once instead of holding the thread.
 r=$(post -H 'Content-Length: -1' --max-time 5 http://127.0.0.1:8083/save)
 if [[ $r == 400* ]]; then echo "ok: negative Content-Length refused"; else echo "FAILED: negative Content-Length: $r"; fail=1; fi
+r=$(post -H 'Content-Length: ²' --max-time 5 http://127.0.0.1:8083/save)
+if [[ $r == 400* ]]; then echo "ok: Unicode digit in Content-Length refused"; else echo "FAILED: Unicode digit in Content-Length: $r"; fail=1; fi
 if docker exec "$NAME" curl -sI http://127.0.0.1:8083/ | grep -qi "frame-ancestors 'none'"; then
     echo "ok: security headers"
 else

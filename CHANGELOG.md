@@ -5,6 +5,25 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
+## [Unreleased]
+
+### Fixed
+- Saving a download list no longer empties it first. The list is written to a
+  temporary file and renamed over the old one, one save at a time per list, so
+  a download run, a crash or a full disk can't see or leave an empty or cut-off
+  list.
+- The hotfolder no longer converts a file that is still being copied when the
+  copy tool kept the source's old modification time. A file counts as ready
+  when its size and modification time are the same as one round ago and its
+  status change time is older than the settle time.
+- The hotfolder writes each mp3 under a hidden temporary name and renames it
+  when ffmpeg succeeds, so a failed or interrupted conversion no longer leaves
+  a half-written mp3 that looks finished. A file that disappears between
+  listing and reading is skipped.
+- The web UI drops a client that stops sending its request body after 30
+  seconds instead of holding a thread for good, and answers a `Content-Length`
+  with characters such as `²` with `400` instead of a traceback.
+
 ## [3.1.1] - 2026-11-07
 
 ### Changed

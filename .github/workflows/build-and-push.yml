@@ -38,10 +38,16 @@ jobs:
       - name: Shellcheck
         run: |
           shellcheck root/etc/s6-overlay/s6-rc.d/*/run root/defaults/ytdl.sh \
-            root/app/hotfolder/watch.sh tests/smoke.sh
+            root/app/hotfolder/watch.sh tests/smoke.sh tests/test_hotfolder.sh
 
       - name: Python syntax
         run: python3 -m py_compile root/app/webui/server.py
+
+      - name: Web UI tests
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Hotfolder tests
+        run: tests/test_hotfolder.sh
 
       - name: Scan dependencies for known vulnerabilities
         run: |
