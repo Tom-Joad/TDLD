@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/log.sh"
+
 HOTFOLDER_IN="${HOTFOLDER_IN:-/hotfolder/input}"
 HOTFOLDER_OUT="${HOTFOLDER_OUT:-/hotfolder/output}"
 HOTFOLDER_PROCESSED="${HOTFOLDER_PROCESSED:-/hotfolder/processed}"
@@ -16,7 +19,7 @@ VIDEO_EXTENSIONS=(mp4 mkv avi mov webm flv wmv m4v)
 # size:mtime of each file at the previous round
 declare -A SEEN
 
-echo "[hotfolder] checking ${HOTFOLDER_IN} for video files (${VIDEO_EXTENSIONS[*]}) every ${HOTFOLDER_INTERVAL}s, writing mp3s to ${HOTFOLDER_OUT}"
+log hotfolder "checking ${HOTFOLDER_IN} for video files (${VIDEO_EXTENSIONS[*]}) every ${HOTFOLDER_INTERVAL}s, writing mp3s to ${HOTFOLDER_OUT}"
 
 shopt -s nullglob nocaseglob
 
@@ -37,27 +40,27 @@ do
             NOW["$SRC"]="$SIZE:$MTIME"
             FILENAME="$(basename "$SRC")"
             if [[ ${SEEN["$SRC"]-} != "$SIZE:$MTIME" ]] || (( $(date +%s) - CTIME < SETTLE_SECONDS )); then
-                echo "[hotfolder] $FILENAME is still changing, next round"
+                log hotfolder "$FILENAME is still changing, next round"
                 continue
             fi
             MP3NAME="$FILENAME.mp3"
             DEST="$HOTFOLDER_OUT/$MP3NAME"
             PARTIAL="$HOTFOLDER_OUT/.$MP3NAME.partial"
-            echo "[hotfolder] converting $FILENAME -> $MP3NAME"
+            log hotfolder "converting $FILENAME -> $MP3NAME"
             if ffmpeg -nostdin -y -i "$SRC" -vn -acodec libmp3lame -q:a 2 -f mp3 "$PARTIAL"; then
                 # The copy may have gone on while ffmpeg ran.
                 if [[ "$(stat -c '%s:%Y' "$SRC" 2>/dev/null)" != "$SIZE:$MTIME" ]]; then
                     rm -f "$PARTIAL"
-                    echo "[hotfolder] $FILENAME changed during conversion, next round"
+                    log hotfolder "$FILENAME changed during conversion, next round"
                     continue
                 fi
                 mv -f "$PARTIAL" "$DEST"
                 mv "$SRC" "$HOTFOLDER_PROCESSED/$FILENAME"
                 unset 'NOW["$SRC"]'
-                echo "[hotfolder] done: $MP3NAME"
+                log hotfolder "done: $MP3NAME"
             else
                 rm -f "$PARTIAL"
-                echo "[hotfolder] ffmpeg failed for $FILENAME, leaving it in place"
+                log_error hotfolder "ffmpeg failed for $FILENAME, leaving it in place"
             fi
         done
     done

@@ -5,20 +5,30 @@
 # script) and the data folders. Runs as root once per container start,
 # before the services.
 
+# shellcheck source=/dev/null
+source /app/lib/log.sh
+
+# The first line of the log: the version and the settings that matter (never
+# cookies or tokens). The bug report template asks for it.
+log init "TDLD ${TDLD_VERSION:-unknown} starting: PUID=${PUID:-} PGID=${PGID:-} UMASK=${UMASK:-} TZ=${TZ:-}" \
+    "SLEEP_INTERVAL=${SLEEP_INTERVAL:-3600} HOTFOLDER_INTERVAL=${HOTFOLDER_INTERVAL:-300}" \
+    "AUTO_UPDATE_YTDLP=${AUTO_UPDATE_YTDLP:-false} WEBUI_PORT=${WEBUI_PORT:-8083}" \
+    "TDLD_ALLOWED_HOSTS=${TDLD_ALLOWED_HOSTS:-}"
+
 HOTFOLDER_IN=${HOTFOLDER_IN:-/hotfolder/input}
 HOTFOLDER_OUT=${HOTFOLDER_OUT:-/hotfolder/output}
 HOTFOLDER_PROCESSED=${HOTFOLDER_PROCESSED:-/hotfolder/processed}
 LISTS=(audioonly channels playlists)
 LEGACY=/app/data
 
-mkdir -p /config/lists /config/ytdlpconfig /config/archives /config/logs /config/scripts /config/cache \
+mkdir -p /config/locks /config/lists /config/ytdlpconfig /config/archives /config/logs /config/scripts /config/cache \
     /downloads /hotfolder
 
 # Up to 1.x everything lived in /app/data. If that is still mounted and
 # /config is new, take over the lists, the yt-dlp configs (with their paths
 # rewritten) and the download archives, so nothing is downloaded twice.
 if [[ -d ${LEGACY}/config/lists && ! -f /config/lists/channels.list ]]; then
-    echo "**** migrating ${LEGACY} to /config ****"
+    log init "migrating ${LEGACY} to /config"
     cp -R "${LEGACY}/config/lists/." /config/lists/
     if [[ -d ${LEGACY}/archives ]]; then
         cp -R "${LEGACY}/archives/." /config/archives/
@@ -31,12 +41,12 @@ if [[ -d ${LEGACY}/config/lists && ! -f /config/lists/channels.list ]]; then
             "${file}" > "/config/ytdlpconfig/$(basename "${file}")"
     done
     if [[ -f ${LEGACY}/scripts/ytdl.sh ]]; then
-        echo "**** ${LEGACY}/scripts/ytdl.sh is not migrated, it uses the old paths. If you"
-        echo "**** changed it, carry your changes over to /config/scripts/ytdl.sh ****"
+        log_warn init "${LEGACY}/scripts/ytdl.sh is not migrated, it uses the old paths. If you" \
+            "changed it, carry your changes over to /config/scripts/ytdl.sh"
     fi
     if ! grep -qs ' /downloads ' /proc/mounts; then
-        echo "**** /downloads is not mapped: new downloads stay inside the container."
-        echo "**** Map your download folder (before: ${LEGACY}/output) to /downloads ****"
+        log_warn init "/downloads is not mapped: new downloads stay inside the container." \
+            "Map your download folder (before: ${LEGACY}/output) to /downloads"
     fi
     # The old image made everything world-writable (777).
     find /config/lists /config/archives /config/ytdlpconfig -type f -exec chmod 644 {} +
@@ -62,16 +72,32 @@ if [[ ! -f /config/ytdlpconfig/cookies.txt ]]; then
 COOKIES
 fi
 
+# The copy is the user's to edit, so it is only replaced while it is still a
+# script an earlier release copied, unchanged. Without that, installations
+# would keep running the old loop forever. When a release changes
+# root/defaults/ytdl.sh, add the sha256 of the version it replaces here.
+OLD_YTDL_SHA256S=(
+    a8b90768b428dee03ed8f4c3f00dbcd3a935da7d5ffaf48dd7ed00192d06643e # 2.0.0 to 3.1.1
+)
 if [[ ! -f /config/scripts/ytdl.sh ]]; then
     cp /defaults/ytdl.sh /config/scripts/ytdl.sh
+elif ! cmp -s /defaults/ytdl.sh /config/scripts/ytdl.sh; then
+    current=$(sha256sum < /config/scripts/ytdl.sh)
+    if [[ " ${OLD_YTDL_SHA256S[*]} " == *" ${current%% *} "* ]]; then
+        cp /defaults/ytdl.sh /config/scripts/ytdl.sh
+        log init "/config/scripts/ytdl.sh updated to this version's script"
+    else
+        log_warn init "/config/scripts/ytdl.sh differs from this version's script (/defaults/ytdl.sh)." \
+            "Without its changes the scheduled run neither logs time stamps nor waits for a manual download"
+    fi
 fi
 
 # Updating yt-dlp is opt-in. It runs here rather than in svc-ytdl, so a
 # restarting service doesn't reinstall it each time.
 if [[ ${AUTO_UPDATE_YTDLP,,} == true ]]; then
-    echo "**** updating yt-dlp ****"
+    log init "updating yt-dlp"
     if ! python3 -m pip install --break-system-packages --no-cache-dir --quiet -U yt-dlp; then
-        echo "**** yt-dlp update failed, keeping $(yt-dlp --version) ****"
+        log_warn init "yt-dlp update failed, keeping $(yt-dlp --version)"
     fi
 fi
 
