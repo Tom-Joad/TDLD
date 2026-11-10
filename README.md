@@ -41,7 +41,12 @@ Edit the lists by hand or via the [web UI](#web-ui) on port `8083`. Files in `/c
 changed or deleted are not overwritten; a deleted list or config file is recreated with the
 defaults on the next start.
 
-The download loop logs to the container log (`docker logs`) and to `/config/logs/*.log`.
+The download loop logs to the container log (`docker logs`) and to `/config/logs/*.log`. Lines
+in the container log start with the time (`[2026-11-10 12:00:00] [ytdl] …`); the first line,
+`TDLD <version> starting`, names the version and the settings, so include it in a bug report.
+
+Only one download runs per profile at a time: a scheduled run and "Download Now" share a lock, a
+manual download that finds the profile busy is refused, and the web UI shows what is running.
 
 ## YouTube "Sign in to confirm you're not a bot"
 
