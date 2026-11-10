@@ -1,1 +1,15 @@
+# What TDLD installs directly. AUTO_UPDATE_YTDLP still updates yt-dlp at start.
 yt-dlp[default]==2026.10.26
+
+# What the `default` extra pulls in, pinned as well, so every build installs
+# the same versions and updates arrive as Dependabot pull requests.
+brotli==1.2.1  # via yt-dlp
+certifi==2026.10.23  # via requests, yt-dlp
+charset-normalizer==3.5.2  # via requests
+idna==3.20  # via requests
+mutagen==1.48.1  # via yt-dlp
+pycryptodomex==3.24.2  # via yt-dlp
+requests==2.34.2  # via yt-dlp
+urllib3==2.8.0  # via requests, yt-dlp
+websockets==17.4  # via yt-dlp
+yt-dlp-ejs==0.8.0  # via yt-dlp
