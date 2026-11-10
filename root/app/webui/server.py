@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import collections
 import contextlib
 import fcntl
 import ipaddress
@@ -23,6 +22,8 @@ MAX_BODY_SIZE = 1024 * 1024  # 1 MiB, more than enough for a list of URLs
 LOG_FILES = {f"{key}.log": f"{label} (scheduled)" for key, label in LISTS.items()}
 LOG_FILES.update({f"{key}-manual.log": f"{label} (manual)" for key, label in LISTS.items()})
 LOG_TAIL_LINES = 500
+# How much of the end of a log is read to find those lines.
+LOG_TAIL_BYTES = 1024 * 1024
 # A manual log is moved to <name>.log.1 (replacing the older one) when a new
 # download starts and it has grown past this size.
 MANUAL_LOG_MAX_BYTES = 5 * 1024 * 1024
@@ -232,23 +233,34 @@ def escape(s):
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def stamp(message):
+    """A log line: "[YYYY-MM-DD HH:MM:SS] [webui] message"."""
+    return f"{time.strftime('[%Y-%m-%d %H:%M:%S]')} [webui] {message}"
+
+
 def log(message):
-    """One line in the container log: "[YYYY-MM-DD HH:MM:SS] [webui] message".
+    """One line in the container log.
 
     Flushed at once: under s6 stdout is a pipe, and buffered lines would show
     up late or be lost when the container stops.
     """
-    print(time.strftime("[%Y-%m-%d %H:%M:%S]"), "[webui]", message, flush=True)
+    print(stamp(message), flush=True)
 
 
 def read_log_tail(name):
     path = os.path.join(LOGS_DIR, name)
     try:
         # Only the end of the file is read, however large the log is.
-        with open(path, "r", errors="replace") as f:
-            return "".join(collections.deque(f, maxlen=LOG_TAIL_LINES))
+        with open(path, "rb") as f:
+            size = f.seek(0, os.SEEK_END)
+            f.seek(max(0, size - LOG_TAIL_BYTES))
+            data = f.read()
     except FileNotFoundError:
         return "(no log yet)"
+    lines = data.decode("utf-8", errors="replace").splitlines(keepends=True)
+    if size > LOG_TAIL_BYTES:
+        lines = lines[1:]  # the first line is cut off
+    return "".join(lines[-LOG_TAIL_LINES:])
 
 
 # Manual downloads that are running now, by profile.
@@ -315,7 +327,7 @@ def start_download(profile, url):
         except FileNotFoundError:
             pass
         with open(log_path, "a") as logfile:
-            logfile.write(time.strftime("[%Y-%m-%d %H:%M:%S]") + f" [webui] Manual download requested: {url}\n")
+            logfile.write(stamp(f"Manual download requested: {url}") + "\n")
             logfile.flush()
             proc = subprocess.Popen(
                 [
