@@ -20,17 +20,16 @@ cleanup() {
 trap cleanup EXIT
 
 # The stand-in takes the last argument as its output. MODE decides what it does.
-cat > "$BIN/ffmpeg" <<'STUB'
+cat > "$BIN/ffmpeg" <<STUB
 #!/usr/bin/env bash
-out="${*: -1}"
-case "${FAKE_FFMPEG_MODE:-ok}" in
-    ok) echo "mp3" > "$out" ;;
-    fail) echo "half" > "$out"; exit 1 ;;
-    slow) echo "half" > "$out"; sleep 30; echo "mp3" > "$out" ;;
+out="\${*: -1}"
+case "\${FAKE_FFMPEG_MODE:-ok}" in
+    ok) echo mp3 > "\$out" ;;
+    fail) echo half > "\$out"; exit 1 ;;
+    slow) echo half > "\$out"; exec -a $BIN/ffmpeg sleep 30 ;;
 esac
 STUB
 chmod +x "$BIN/ffmpeg"
-sed -i "s#sleep 30#exec -a $BIN/ffmpeg sleep 30#" "$BIN/ffmpeg"
 
 new_case() {
     CASE="$WORK/$1"

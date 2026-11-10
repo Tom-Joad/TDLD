@@ -6,6 +6,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 from http.server import ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -68,17 +69,9 @@ class WriteListTests(ServerTestCase):
 
     def test_failed_write_keeps_the_old_list(self):
         self.server.write_list("channels", "https://old\n")
-        original_replace = os.replace
-
-        def broken_replace(src, dst):
-            raise OSError("disk full")
-
-        os.replace = broken_replace
-        try:
+        with mock.patch("os.replace", side_effect=OSError("disk full")):
             with self.assertRaises(OSError):
                 self.server.write_list("channels", "https://new\n")
-        finally:
-            os.replace = original_replace
         self.assertEqual(self.server.read_list("channels"), "https://old\n")
         self.assertEqual(os.listdir(self.lists), ["channels.list"])
 

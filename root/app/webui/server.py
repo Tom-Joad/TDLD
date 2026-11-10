@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import contextlib
 import ipaddress
 import os
 import re
@@ -213,12 +214,10 @@ def write_list(key, content):
             except FileNotFoundError:
                 pass
             os.replace(tmp, path)
-        except BaseException:
-            try:
+        finally:
+            # Gone after a successful rename; left over only after a failure.
+            with contextlib.suppress(FileNotFoundError):
                 os.unlink(tmp)
-            except FileNotFoundError:
-                pass
-            raise
 
 
 def escape(s):
