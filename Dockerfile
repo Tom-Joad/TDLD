@@ -2,7 +2,7 @@
 # linuxserver.io's Alpine base: s6-overlay, PUID/PGID/UMASK/TZ, the abc
 # user and docker mods, as in every linuxserver.io container.
 # Pinned by digest (a multi-arch index); Dependabot proposes new digests.
-FROM ghcr.io/linuxserver/baseimage-alpine:3.24@sha256:d07ad0eb9e65feb40ded2125e17ad8e1b33228b3cf480567378c8042ef0a8b2d
+FROM ghcr.io/linuxserver/baseimage-alpine:3.24@sha256:7315b19a32460a84b4474993ef33065483ffec792fbc70dbe12eab918aa2bbf4
 
 # VERSION and BUILD_DATE are passed in by the build workflow.
 ARG BUILD_DATE
@@ -63,8 +63,9 @@ RUN \
 
 EXPOSE 8083
 
-# Lists, yt-dlp configs, archives, logs and the download script.
-VOLUME /config
+# Lists, yt-dlp configs, archives, logs and the download script; the
+# downloads; the hotfolder's input, output and processed folders.
+VOLUME /config /downloads /hotfolder
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
     CMD curl -fs http://127.0.0.1:${WEBUI_PORT:-8083}/ || exit 1

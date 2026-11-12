@@ -12,7 +12,7 @@ body:
     attributes:
       label: Version
       description: "`docker inspect -f '{{ index .Config.Labels \"build_version\" }}' tdld`"
-      placeholder: "TDLD version: 2.0.0-…"
+      placeholder: "TDLD version: 3.2.0 Build-date: 2026-11-10"
     validations:
       required: true
   - type: dropdown

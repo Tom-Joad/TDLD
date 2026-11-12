@@ -35,6 +35,11 @@ jobs:
         with:
           fetch-depth: 0 # gitleaks needs history to scan past commits
 
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14" # the Python version of the image
+
       - name: Shellcheck
         run: |
           shellcheck root/etc/s6-overlay/s6-rc.d/*/run root/defaults/ytdl.sh \
@@ -90,6 +95,17 @@ jobs:
       packages: write
       id-token: write
     steps:
+      # `latest` is the newest release (README). A manual run on a branch
+      # would move it to an unreleased state: run it on a release tag
+      # ("Use workflow from: v…") to rebuild a release.
+      - name: Only release tags are published
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          echo "::error::Run this workflow on a release tag, not on ${REF}."
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
