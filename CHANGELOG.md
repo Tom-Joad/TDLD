@@ -17,6 +17,9 @@ comes with a new major version.
   `processed/clip (2).mp4`.
 - A hotfolder file that ffmpeg can't convert is tried again only when it
   changes or the container restarts, not every round.
+- The web UI only saves the lists on `POST /save`, the address its form
+  uses. Other addresses answer `404` instead of saving whatever list fields
+  the request carries.
 
 ### Fixed
 - An interval that can't be used (`SLEEP_INTERVAL`, `HOTFOLDER_INTERVAL`,
@@ -33,6 +36,15 @@ comes with a new major version.
   every round.
 - A step of the start-up setup that fails now stops the container instead
   of starting the services on a half-prepared `/config`.
+- When the lists can't be saved (full disk, read-only `/config`), a
+  download can't be started, or the page or a log can't be read, the web UI
+  answers with an error message and
+  logs an `ERROR:` line, instead of dropping the connection with a
+  traceback in the log.
+- A manual download whose address contains a control character (such as an
+  encoded NUL byte) is refused as invalid instead of ending in a traceback.
+- A manual download started while the page was checking which downloads
+  run is no longer refused as busy now and then.
 
 ### Security
 - The start-up setup, which runs as root, writes into `/config` as `abc`,
