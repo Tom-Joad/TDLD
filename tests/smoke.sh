@@ -14,7 +14,7 @@ PUID=$(id -u); PGID=$(id -g)
 
 # shellcheck disable=SC2317,SC2329 # called by the trap below (code differs by shellcheck version)
 cleanup() {
-    docker rm -f "$NAME" >/dev/null 2>&1 || true
+    docker rm -f "$NAME" "$NAME-bad" "$NAME-link" >/dev/null 2>&1 || true
     # Some files are written as root; remove them through a container.
     docker run --rm --entrypoint sh -v "$DIR:/w" "$IMAGE" -c 'rm -rf /w/*' >/dev/null 2>&1 || true
     rm -rf "$DIR"
@@ -110,10 +110,74 @@ r=$(post -H 'Content-Length: -1' --max-time 5 http://127.0.0.1:8083/save)
 if [[ $r == 400* ]]; then echo "ok: negative Content-Length refused"; else echo "FAILED: negative Content-Length: $r"; fail=1; fi
 r=$(post -H 'Content-Length: ²' --max-time 5 http://127.0.0.1:8083/save)
 if [[ $r == 400* ]]; then echo "ok: Unicode digit in Content-Length refused"; else echo "FAILED: Unicode digit in Content-Length: $r"; fail=1; fi
-if docker exec "$NAME" curl -sI http://127.0.0.1:8083/ | grep -qi "frame-ancestors 'none'"; then
+# GET, not HEAD: the server has no HEAD handler, and its 501 answer must not
+# be what passes this check.
+headers=$(docker exec "$NAME" curl -s -D - -o /dev/null http://127.0.0.1:8083/)
+if grep -q '^HTTP/[0-9.]* 200' <<<"$headers" && grep -qi "frame-ancestors 'none'" <<<"$headers"; then
     echo "ok: security headers"
 else
     echo "FAILED: security headers"; fail=1
+fi
+# The services run with HOME=/config, not root's /root. Read as abc: root
+# lacks the ptrace right for another user's environ.
+for p in ytdl.sh server.py watch.sh; do
+    pid=$(docker exec "$NAME" pgrep -o -u "$PUID" -f "$p")
+    env=$(docker exec --user abc "$NAME" cat "/proc/$pid/environ" | tr '\0' '\n')
+    if grep -qx 'HOME=/config' <<<"$env"; then echo "ok: $p has HOME=/config"; else echo "FAILED: $p HOME"; fail=1; fi
+done
+
+# Lists survive a restart and a new container on the same /config.
+wait_for() { # tries command...
+    local n=$1; shift
+    for _ in $(seq "$n"); do
+        "$@" && return 0
+        sleep 1
+    done
+    return 1
+}
+# The image's own health check command, instead of Docker's 30 s interval.
+# shellcheck disable=SC2317,SC2329 # called through wait_for
+healthy() { docker exec "$1" sh -c "$(docker inspect -f '{{index .Config.Healthcheck.Test 1}}' "$1")" >/dev/null 2>&1; }
+# shellcheck disable=SC2317,SC2329 # called through wait_for
+not_running() { [[ $(docker inspect -f '{{.State.Status}}' "$1") != running ]]; }
+up() { wait_for 60 healthy "$NAME"; }
+saved() { grep -q 'example.com/a' "$DIR/config/lists/channels.list"; }
+docker restart "$NAME" >/dev/null
+if up && saved; then echo "ok: list kept after a restart"; else echo "FAILED: list after a restart"; fail=1; fi
+docker rm -f "$NAME" >/dev/null
+docker run -d --name "$NAME" -e PUID="$PUID" -e PGID="$PGID" -e UMASK=002 \
+    -v "$DIR/config:/config" -v "$DIR/downloads:/downloads" -v "$DIR/hotfolder:/hotfolder" \
+    "$IMAGE" >/dev/null
+if up && saved && docker exec "$NAME" curl -s http://127.0.0.1:8083/ | grep -q 'example.com/a'; then
+    echo "ok: list kept in a new container"
+else
+    echo "FAILED: list in a new container"; fail=1
+fi
+
+# A setting the services can't use stops the container with an ERROR line
+# instead of a download loop without pause or a web UI that never starts.
+docker run -d --name "$NAME-bad" -e PUID="$PUID" -e PGID="$PGID" -e SLEEP_INTERVAL=abc -e WEBUI_PORT=0 \
+    -e HOTFOLDER_INTERVAL=0 -e SETTLE_SECONDS=1m "$IMAGE" >/dev/null
+if wait_for 30 not_running "$NAME-bad"; then echo "ok: bad settings stop the container"; else echo "FAILED: bad settings: still running"; fail=1; fi
+bad_log=$(docker logs "$NAME-bad" 2>&1)
+for setting in SLEEP_INTERVAL=abc WEBUI_PORT=0 HOTFOLDER_INTERVAL=0 SETTLE_SECONDS=1m; do
+    if grep -q "ERROR: $setting " <<<"$bad_log"; then echo "ok: ERROR for $setting"; else echo "FAILED: no ERROR for $setting"; fail=1; fi
+done
+if grep -q '\[ytdl\]' <<<"$bad_log"; then echo "FAILED: the download loop started"; fail=1; fi
+
+# The root init step writes nothing through a symlink abc placed in /config.
+LINKDIR=$(mktemp -d -p "$DIR")
+mkdir -p "$LINKDIR/ytdlpconfig"
+ln -s /etc/tdld-smoke-link "$LINKDIR/ytdlpconfig/cookies.txt"
+docker run -d --name "$NAME-link" -e PUID="$PUID" -e PGID="$PGID" -v "$LINKDIR:/config" "$IMAGE" >/dev/null
+# Done once the services are up or the init step gave up.
+# shellcheck disable=SC2317,SC2329 # called through wait_for
+settled() { healthy "$1" || not_running "$1"; }
+wait_for 60 settled "$NAME-link" || true
+if docker diff "$NAME-link" | grep -q tdld-smoke-link; then
+    echo "FAILED: init wrote through a symlink in /config"; fail=1
+else
+    echo "ok: init doesn't write through a symlink in /config"
 fi
 
 if docker logs "$NAME" 2>&1 | grep -E 'Permission denied|No such file|fatal'; then
