@@ -107,6 +107,28 @@ class DownloadTests(ServerTestCase):
         self.assertTrue(self.server.start_download("channels", "https://example.com/a"))
         self.wait_until_idle()
 
+    def test_status_check_does_not_make_a_download_busy(self):
+        # The status check takes each profile's lock for a moment. A download
+        # started in that moment must wait for it, not be refused as busy.
+        real_try_lock = self.server.try_lock
+        probing = threading.Event()
+
+        def slow_try_lock(profile):
+            fd = real_try_lock(profile)
+            if threading.current_thread() is not threading.main_thread() and profile == "channels":
+                probing.set()
+                time.sleep(0.3)
+            return fd
+
+        with mock.patch.object(self.server, "try_lock", side_effect=slow_try_lock):
+            status = threading.Thread(target=self.server.running_profiles)
+            status.start()
+            self.assertTrue(probing.wait(2))
+            started = self.server.start_download("channels", "https://example.com/a")
+            status.join()
+        self.assertTrue(started, "refused as busy while the status was checked")
+        self.wait_until_idle()
+
     def test_large_manual_log_is_rotated(self):
         path = os.path.join(self.logs, "channels-manual.log")
         with open(path, "w") as f:
@@ -241,6 +263,84 @@ class RequestTests(ServerTestCase):
             half_close=True,
         )
         self.assertEqual(self.server.read_list("channels"), "https://old\n")
+
+    def post(self, port, path, body, extra=""):
+        reply = self.raw(
+            port,
+            (f"POST {path} HTTP/1.0\r\nHost: localhost\r\nContent-Length: {len(body)}\r\n{extra}\r\n").encode()
+            + body,
+        )
+        self.assertIsNotNone(reply)
+        return reply
+
+    def test_only_save_saves_the_lists(self):
+        port = self.start(timeout=5)
+        for path in ("/", "/download/x", "/other", "/save/../x"):
+            reply = self.post(port, path, b"channels=https://x")
+            self.assertTrue(reply.startswith(b"HTTP/1.0 404"), (path, reply[:40]))
+        self.assertEqual(os.listdir(self.lists), [])
+        reply = self.post(port, "/save", b"channels=https://x")
+        self.assertTrue(reply.startswith(b"HTTP/1.0 303"), reply[:40])
+        self.assertEqual(self.server.read_list("channels"), "https://x\n")
+
+    def test_failed_save_gets_an_answer(self):
+        port = self.start(timeout=5)
+        with mock.patch.object(self.server, "write_list", side_effect=OSError(28, "No space left on device")):
+            reply = self.post(port, "/save", b"channels=https://x")
+        self.assertTrue(reply.startswith(b"HTTP/1.0 500"), reply[:40])
+        self.assertIn(b"could not save", reply)
+
+    def test_failed_download_start_gets_an_answer(self):
+        port = self.start(timeout=5)
+        with mock.patch.object(self.server, "start_download", side_effect=OSError(13, "Permission denied")):
+            reply = self.post(port, "/download", b"url=https://example.com/v&profile=channels")
+        self.assertTrue(reply.startswith(b"HTTP/1.0 500"), reply[:40])
+
+    def test_nul_byte_in_the_url_is_refused(self):
+        port = self.start(timeout=5)
+        reply = self.post(port, "/download", b"url=https://example.com/a%00b&profile=channels")
+        self.assertTrue(reply.startswith(b"HTTP/1.0 303"), reply[:40])
+        self.assertIn(b"invalid=1", reply)
+
+
+class CheckTests(ServerTestCase):
+    def test_url_re(self):
+        for url in ("https://example.com/watch?v=1", "http://a", "HTTPS://EXAMPLE.COM"):
+            self.assertTrue(self.server.URL_RE.match(url), url)
+        for url in ("--exec=id", "-x", "ftp://a", "https://", "https://a b", "https://a\nb",
+                    "https://a\x00b", "https://a\x7f", " https://a", "file:///etc/passwd"):
+            self.assertFalse(self.server.URL_RE.match(url), repr(url))
+
+    def test_host_allowed(self):
+        for host in ("", "localhost", "localhost:8083", "tower", "tower:8083", "TOWER.local", "nas.lan:1",
+                     "x.home.arpa", "x.internal", "192.168.1.5", "192.168.1.5:8083", "[::1]:8083", "[fe80::1]",
+                     "tower.local."):
+            self.assertTrue(self.server.host_allowed(host), host)
+        for host in ("attacker.example", "attacker.example:8083", "evil.com.", "local.evil.com",
+                     "lan.example.org"):
+            self.assertFalse(self.server.host_allowed(host), host)
+
+    def test_allowed_hosts_setting(self):
+        with mock.patch.dict(os.environ, {"TDLD_ALLOWED_HOSTS": " TDLD.Example.com. , other.example "}):
+            server = load_server(self.lists, self.logs, self.locks)
+        self.assertTrue(server.host_allowed("tdld.example.com:443"))
+        self.assertTrue(server.host_allowed("other.example"))
+        self.assertFalse(server.host_allowed("example.com"))
+
+    def test_same_origin(self):
+        same = self.server.same_origin
+        self.assertTrue(same({}))
+        self.assertTrue(same({"Sec-Fetch-Site": "same-origin"}))
+        self.assertTrue(same({"Sec-Fetch-Site": "none"}))
+        self.assertFalse(same({"Sec-Fetch-Site": "cross-site"}))
+        self.assertFalse(same({"Sec-Fetch-Site": "same-site"}))
+        # Sec-Fetch-Site wins over a matching Origin.
+        self.assertFalse(same({"Sec-Fetch-Site": "cross-site", "Origin": "http://tower:8083", "Host": "tower:8083"}))
+        self.assertTrue(same({"Origin": "http://tower:8083", "Host": "tower:8083"}))
+        self.assertTrue(same({"Origin": "https://tdld.example.com", "Host": "tdld:8083",
+                              "X-Forwarded-Host": "tdld.example.com"}))
+        self.assertFalse(same({"Origin": "https://evil.example", "Host": "tower:8083"}))
+        self.assertFalse(same({"Origin": "null", "Host": "tower:8083"}))
 
 
 if __name__ == "__main__":

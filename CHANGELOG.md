@@ -5,6 +5,23 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
+## [Unreleased]
+
+### Changed
+- The web UI only saves the lists on `POST /save`, the address its form
+  uses. Other addresses answer `404` instead of saving whatever list fields
+  the request carries.
+
+### Fixed
+- When the lists can't be saved (full disk, read-only `/config`) or a
+  download can't be started, the web UI answers with an error message and
+  logs an `ERROR:` line, instead of dropping the connection with a
+  traceback in the log.
+- A manual download whose address contains a control character (such as an
+  encoded NUL byte) is refused as invalid instead of ending in a traceback.
+- A manual download started while the page was checking which downloads
+  run is no longer refused as busy now and then.
+
 ## [3.2.0] - 2026-11-10
 
 ### Added

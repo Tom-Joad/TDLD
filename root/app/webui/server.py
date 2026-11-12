@@ -118,7 +118,8 @@ PROFILE_OPTION_TEMPLATE = '<option value="{key}">{label}</option>'
 
 # A manual download takes one web address, nothing else: a value starting
 # with "-" would reach yt-dlp as an option (--exec runs shell commands).
-URL_RE = re.compile(r"^https?://[^\s]+$", re.IGNORECASE)
+# Control characters are refused too: a NUL byte can't go on a command line.
+URL_RE = re.compile(r"^https?://[^\s\x00-\x1f\x7f]+$", re.IGNORECASE)
 
 # No sniffing a page into something else, no framing by other sites (a
 # hidden button under someone else's page), no paths in the Referer.
@@ -266,6 +267,10 @@ def read_log_tail(name):
 # Manual downloads that are running now, by profile.
 _running = {}
 _running_lock = threading.Lock()
+# The status check takes a profile's lock for a moment to see whether it is
+# free. Taking it under this lock keeps a download started in that moment
+# from being refused as busy.
+_probe_lock = threading.Lock()
 
 
 def lock_path(profile):
@@ -293,11 +298,12 @@ def running_profiles():
         if manual:
             state[profile] = "manual"
             continue
-        fd = try_lock(profile)
+        with _probe_lock:
+            fd = try_lock(profile)
+            if fd is not None:
+                os.close(fd)
         if fd is None:
             state[profile] = "scheduled"
-        else:
-            os.close(fd)
     return state
 
 
@@ -317,7 +323,8 @@ def start_download(profile, url):
     config_path = os.path.join(CONFIG_DIR, f"{profile}.config")
     log_path = os.path.join(LOGS_DIR, f"{profile}-manual.log")
     os.makedirs(LOGS_DIR, exist_ok=True)
-    lock_fd = try_lock(profile)
+    with _probe_lock:
+        lock_fd = try_lock(profile)
     if lock_fd is None:
         return False
     try:
@@ -435,6 +442,10 @@ class Handler(BaseHTTPRequestHandler):
         if not same_origin(self.headers):
             self._refuse(403, "cross-site request refused")
             return
+        path = urlsplit(self.path).path
+        if path not in ("/save", "/download"):
+            self._refuse(404, "not found")
+            return
         # A missing, negative or non-numeric length used to hang the request
         # thread or end in a traceback.
         # isdigit() also accepts characters such as "²", which int() rejects.
@@ -458,13 +469,20 @@ class Handler(BaseHTTPRequestHandler):
         body = raw_body.decode("utf-8", errors="replace")
         data = parse_qs(body, keep_blank_values=True)
 
-        if self.path == "/download":
+        if path == "/download":
             self._handle_download(data)
             return
 
-        for key in LISTS:
-            if key in data:
-                write_list(key, data[key][0])
+        try:
+            for key in LISTS:
+                if key in data:
+                    write_list(key, data[key][0])
+        except OSError as e:
+            # A full disk or a read-only /config: say so instead of dropping
+            # the connection with a traceback.
+            log(f"ERROR: could not save the lists: {e}")
+            self._refuse(500, f"could not save the lists: {e.strerror or e}")
+            return
         self.send_response(303)
         self.send_header("Location", "/?saved=1")
         self.end_headers()
@@ -477,7 +495,12 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Location", "/?invalid=1")
             self.end_headers()
             return
-        started = start_download(profile, url)
+        try:
+            started = start_download(profile, url)
+        except OSError as e:
+            log(f"ERROR: could not start the download for {profile}: {e}")
+            self._refuse(500, f"could not start the download: {e.strerror or e}")
+            return
         self.send_response(303)
         self.send_header("Location", "/?downloading=1" if started else "/?busy=1")
         self.end_headers()
