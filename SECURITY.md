@@ -25,7 +25,12 @@ Of particular interest:
   `PUID`/`PGID`/`UMASK` allow
 
 The services run as the unprivileged user `abc`; only the start-up setup in
-`init-tdld-config` runs as root.
+`init-tdld-config` runs as root, and it writes into `/config` as `abc`.
+
+`AUTO_UPDATE_YTDLP=true` installs the newest yt-dlp and the packages it
+requires from PyPI at every start, as root and without pinned versions or
+hashes. That trades the reviewed, pinned set of the image for faster yt-dlp
+fixes; leave it off to run only what the image was built and scanned with.
 
 ## Supply chain
 
