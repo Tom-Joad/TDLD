@@ -5,7 +5,7 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
-## [Unreleased]
+## [3.3.0] - Unreleased
 
 ### Changed
 - `AUTO_UPDATE_YTDLP=true` now also updates the packages yt-dlp pins exactly
