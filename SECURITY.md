@@ -34,8 +34,18 @@ fixes; leave it off to run only what the image was built and scanned with.
 
 ## Supply chain
 
-Images are built by GitHub Actions for amd64 and arm64 and signed keylessly
-with cosign. To verify an image:
+- Images are only built from release tags (`v*`), by GitHub Actions, for
+  amd64 and arm64, with provenance and an SBOM. Pushes to `main` and pull
+  requests only run the tests.
+- The base image is pinned by digest, the GitHub Actions by commit SHA, and
+  yt-dlp with all its Python dependencies by version (`requirements.txt`),
+  unless `AUTO_UPDATE_YTDLP` updates them at start; Dependabot proposes
+  updates.
+- Every pull request runs shellcheck, the unit and smoke tests, `pip-audit`
+  on the pinned dependencies and `gitleaks` over the history. Release images
+  are scanned with Trivy, and a daily security watch checks the published
+  image and opens issues for fixes that are available.
+- Images are signed keylessly with cosign. To verify an image:
 
 ```bash
 cosign verify ghcr.io/tom-joad/tdld:latest \

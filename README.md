@@ -106,11 +106,11 @@ Pulling `ghcr.io/tom-joad/tdld:latest` retrieves the correct image for your arch
 
 | Architecture | Available | Tag |
 | :----: | :----: | ---- |
-| x86-64 | yes | latest / 3 / 3.1 / 3.1.0 |
-| arm64 | yes | latest / 3 / 3.1 / 3.1.0 |
+| x86-64 | yes | latest / 3 / 3.x / 3.x.y |
+| arm64 | yes | latest / 3 / 3.x / 3.x.y |
 
 Images are built from releases only. `latest` is the newest release; `3` stays on 3.x and never
-brings a change that needs action when upgrading; `3.1` takes only fixes; `3.1.0` is fixed. Releases with upgrade notes are listed under
+brings a change that needs action when upgrading; a minor tag such as `3.2` takes only fixes; a full version such as `3.2.0` never changes. Releases with upgrade notes are listed under
 [Releases](https://github.com/Tom-Joad/TDLD/releases).
 
 ## Usage

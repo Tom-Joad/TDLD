@@ -20,6 +20,10 @@ comes with a new major version.
 - The web UI only saves the lists on `POST /save`, the address its form
   uses. Other addresses answer `404` instead of saving whatever list fields
   the request carries.
+- Updated the base image (linuxserver/baseimage-alpine 3.24 from `d07ad0e`
+  to `7315b19`).
+- `/downloads` and `/hotfolder` are declared as volumes like `/config`, so
+  their content no longer ends up in the container if one isn't mapped.
 
 ### Fixed
 - An interval that can't be used (`SLEEP_INTERVAL`, `HOTFOLDER_INTERVAL`,
@@ -54,6 +58,9 @@ comes with a new major version.
 
 ### Docs
 - `SETTLE_SECONDS` is listed under Parameters.
+- The README's tag table no longer names an old version.
+- SECURITY.md describes how images are built, pinned and scanned.
+- Changelog links for 2.0.2 to 2.0.4; the 3.0.0 link compares against 2.0.4.
 
 ## [3.2.0] - 2026-11-10
 
@@ -292,5 +299,8 @@ upgrading**, see "Upgrading from 1.x" in the README.
 [3.0.3]: https://github.com/Tom-Joad/TDLD/compare/v3.0.2...v3.0.3
 [3.0.2]: https://github.com/Tom-Joad/TDLD/compare/v3.0.1...v3.0.2
 [3.0.1]: https://github.com/Tom-Joad/TDLD/compare/v3.0.0...v3.0.1
-[3.0.0]: https://github.com/Tom-Joad/TDLD/compare/v2.0.0...v3.0.0
+[3.0.0]: https://github.com/Tom-Joad/TDLD/compare/f51e227...v3.0.0
+[2.0.4]: https://github.com/Tom-Joad/TDLD/compare/e457420...f51e227
+[2.0.3]: https://github.com/Tom-Joad/TDLD/compare/b21c71f...e457420
+[2.0.2]: https://github.com/Tom-Joad/TDLD/tree/b21c71f
 [2.0.0]: https://github.com/Tom-Joad/TDLD/releases/tag/v2.0.0
