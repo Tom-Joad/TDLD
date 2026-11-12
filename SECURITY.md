@@ -33,9 +33,9 @@ The services run as the unprivileged user `abc`; only the start-up setup in
   amd64 and arm64, with provenance and an SBOM. Pushes to `main` and pull
   requests only run the tests.
 - The base image is pinned by digest, the GitHub Actions by commit SHA, and
-  yt-dlp with all its Python dependencies by version (`requirements.txt`);
-  Dependabot proposes updates. `AUTO_UPDATE_YTDLP` is the exception, see
-  above.
+  yt-dlp with all its Python dependencies by version (`requirements.txt`),
+  unless `AUTO_UPDATE_YTDLP` updates them at start; Dependabot proposes
+  updates.
 - Every pull request runs shellcheck, the unit and smoke tests, `pip-audit`
   on the pinned dependencies and `gitleaks` over the history. Release images
   are scanned with Trivy, and a daily security watch checks the published

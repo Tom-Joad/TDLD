@@ -14,10 +14,9 @@ comes with a new major version.
   their content no longer ends up in the container if one isn't mapped.
 
 ### Docs
-- The README's tag table no longer names 3.1; the bug report form shows a
-  current version line; SECURITY.md describes how images are built, pinned
-  and scanned; changelog links for 2.0.2 to 2.0.4 added and the 3.0.0 link
-  compares against 2.0.4.
+- The README's tag table no longer names an old version.
+- SECURITY.md describes how images are built, pinned and scanned.
+- Changelog links for 2.0.2 to 2.0.4; the 3.0.0 link compares against 2.0.4.
 
 ## [3.2.0] - 2026-11-10
 
