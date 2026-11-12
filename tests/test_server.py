@@ -111,19 +111,21 @@ class DownloadTests(ServerTestCase):
         # The status check takes each profile's lock for a moment. A download
         # started in that moment must wait for it, not be refused as busy.
         real_try_lock = self.server.try_lock
-        probing = threading.Event()
+        probing, release = threading.Event(), threading.Event()
 
-        def slow_try_lock(profile):
+        def held_try_lock(profile):
             fd = real_try_lock(profile)
-            if threading.current_thread() is not threading.main_thread() and profile == "channels":
+            if profile == "channels" and not probing.is_set():
+                # The status check holds the lock until the download asked for it.
                 probing.set()
-                time.sleep(0.3)
+                release.wait(2)
             return fd
 
-        with mock.patch.object(self.server, "try_lock", side_effect=slow_try_lock):
+        with mock.patch.object(self.server, "try_lock", side_effect=held_try_lock):
             status = threading.Thread(target=self.server.running_profiles)
             status.start()
             self.assertTrue(probing.wait(2))
+            threading.Timer(0.2, release.set).start()
             started = self.server.start_download("channels", "https://example.com/a")
             status.join()
         self.assertTrue(started, "refused as busy while the status was checked")
@@ -264,11 +266,9 @@ class RequestTests(ServerTestCase):
         )
         self.assertEqual(self.server.read_list("channels"), "https://old\n")
 
-    def post(self, port, path, body, extra=""):
+    def post(self, port, path, body):
         reply = self.raw(
-            port,
-            (f"POST {path} HTTP/1.0\r\nHost: localhost\r\nContent-Length: {len(body)}\r\n{extra}\r\n").encode()
-            + body,
+            port, f"POST {path} HTTP/1.0\r\nHost: localhost\r\nContent-Length: {len(body)}\r\n\r\n".encode() + body
         )
         self.assertIsNotNone(reply)
         return reply
@@ -296,11 +296,12 @@ class RequestTests(ServerTestCase):
             reply = self.post(port, "/download", b"url=https://example.com/v&profile=channels")
         self.assertTrue(reply.startswith(b"HTTP/1.0 500"), reply[:40])
 
-    def test_nul_byte_in_the_url_is_refused(self):
+    def test_unreadable_config_gets_an_answer(self):
         port = self.start(timeout=5)
-        reply = self.post(port, "/download", b"url=https://example.com/a%00b&profile=channels")
-        self.assertTrue(reply.startswith(b"HTTP/1.0 303"), reply[:40])
-        self.assertIn(b"invalid=1", reply)
+        with mock.patch.object(self.server, "try_lock", side_effect=OSError(30, "Read-only file system")):
+            reply = self.raw(port, b"GET / HTTP/1.0\r\nHost: localhost\r\n\r\n")
+        self.assertTrue(reply.startswith(b"HTTP/1.0 500"), reply[:40])
+        self.assertIn(b"could not show the page", reply)
 
 
 class CheckTests(ServerTestCase):

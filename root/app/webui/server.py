@@ -266,11 +266,10 @@ def read_log_tail(name):
 
 # Manual downloads that are running now, by profile.
 _running = {}
+# Also held while the status check takes a profile's lock for a moment to
+# see whether it is free, so a download started in that moment isn't
+# refused as busy.
 _running_lock = threading.Lock()
-# The status check takes a profile's lock for a moment to see whether it is
-# free. Taking it under this lock keeps a download started in that moment
-# from being refused as busy.
-_probe_lock = threading.Lock()
 
 
 def lock_path(profile):
@@ -294,16 +293,14 @@ def running_profiles():
     state = {}
     for profile in LISTS:
         with _running_lock:
-            manual = profile in _running
-        if manual:
-            state[profile] = "manual"
-            continue
-        with _probe_lock:
+            if profile in _running:
+                state[profile] = "manual"
+                continue
             fd = try_lock(profile)
-            if fd is not None:
+            if fd is None:
+                state[profile] = "scheduled"
+            else:
                 os.close(fd)
-        if fd is None:
-            state[profile] = "scheduled"
     return state
 
 
@@ -323,7 +320,7 @@ def start_download(profile, url):
     config_path = os.path.join(CONFIG_DIR, f"{profile}.config")
     log_path = os.path.join(LOGS_DIR, f"{profile}-manual.log")
     os.makedirs(LOGS_DIR, exist_ok=True)
-    with _probe_lock:
+    with _running_lock:
         lock_fd = try_lock(profile)
     if lock_fd is None:
         return False
@@ -394,6 +391,11 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(message.encode("utf-8") + b"\n")
 
+    def _fail(self, what, error):
+        """500 with a short reason, for an error before anything was sent."""
+        log(f"ERROR: could not {what}: {error}")
+        self._refuse(500, f"could not {what}: {error.strerror or error}")
+
     def _host_ok(self):
         if host_allowed(self.headers.get("Host", "")):
             return True
@@ -418,10 +420,15 @@ class Handler(BaseHTTPRequestHandler):
             banner = '<div class="banner">Not started: enter one web address starting with http:// or https://.</div>'
         else:
             banner = ""
+        try:
+            page = self._render(banner)
+        except OSError as e:
+            self._fail("show the page", e)
+            return
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write(self._render(banner))
+        self.wfile.write(page)
 
     def _handle_log_view(self, query):
         name = query.get("name", [""])[0]
@@ -429,7 +436,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
             return
-        content = escape(read_log_tail(name))
+        try:
+            content = escape(read_log_tail(name))
+        except OSError as e:
+            self._fail("read the log", e)
+            return
         page = LOG_PAGE_TEMPLATE.format(name=escape(name), content=content).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -442,8 +453,11 @@ class Handler(BaseHTTPRequestHandler):
         if not same_origin(self.headers):
             self._refuse(403, "cross-site request refused")
             return
-        path = urlsplit(self.path).path
-        if path not in ("/save", "/download"):
+        route = {
+            "/save": (self._handle_save, "save the lists"),
+            "/download": (self._handle_download, "start the download"),
+        }.get(urlsplit(self.path).path)
+        if route is None:
             self._refuse(404, "not found")
             return
         # A missing, negative or non-numeric length used to hang the request
@@ -469,20 +483,18 @@ class Handler(BaseHTTPRequestHandler):
         body = raw_body.decode("utf-8", errors="replace")
         data = parse_qs(body, keep_blank_values=True)
 
-        if path == "/download":
-            self._handle_download(data)
-            return
-
+        # A full disk or a read-only /config: say so instead of dropping the
+        # connection with a traceback.
+        handler, what = route
         try:
-            for key in LISTS:
-                if key in data:
-                    write_list(key, data[key][0])
+            handler(data)
         except OSError as e:
-            # A full disk or a read-only /config: say so instead of dropping
-            # the connection with a traceback.
-            log(f"ERROR: could not save the lists: {e}")
-            self._refuse(500, f"could not save the lists: {e.strerror or e}")
-            return
+            self._fail(what, e)
+
+    def _handle_save(self, data):
+        for key in LISTS:
+            if key in data:
+                write_list(key, data[key][0])
         self.send_response(303)
         self.send_header("Location", "/?saved=1")
         self.end_headers()
@@ -495,12 +507,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Location", "/?invalid=1")
             self.end_headers()
             return
-        try:
-            started = start_download(profile, url)
-        except OSError as e:
-            log(f"ERROR: could not start the download for {profile}: {e}")
-            self._refuse(500, f"could not start the download: {e.strerror or e}")
-            return
+        started = start_download(profile, url)
         self.send_response(303)
         self.send_header("Location", "/?downloading=1" if started else "/?busy=1")
         self.end_headers()

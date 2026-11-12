@@ -13,8 +13,9 @@ comes with a new major version.
   the request carries.
 
 ### Fixed
-- When the lists can't be saved (full disk, read-only `/config`) or a
-  download can't be started, the web UI answers with an error message and
+- When the lists can't be saved (full disk, read-only `/config`), a
+  download can't be started, or the page or a log can't be read, the web UI
+  answers with an error message and
   logs an `ERROR:` line, instead of dropping the connection with a
   traceback in the log.
 - A manual download whose address contains a control character (such as an
