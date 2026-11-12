@@ -23,8 +23,15 @@ declare -A SEEN
 # again every round.
 declare -A FAILED
 
-# Length of a string in bytes, whatever the locale.
-bytes() { local LC_ALL=C; echo "${#1}"; }
+# Gives up on the current file until it changes.
+give_up() { # message...
+    rm -f "$PARTIAL"
+    FAILED["$SRC"]="$SIZE:$MTIME"
+    log_error hotfolder "$*"
+}
+
+# Sets variable $2 to the length of $1 in bytes, whatever the locale.
+bytes() { local LC_ALL=C; printf -v "$2" %d "${#1}"; }
 
 # The name for a file's mp3 and its processed original: its own name, or
 # "clip (2).mp4" when an earlier file of that name is still in the output or
@@ -32,9 +39,11 @@ bytes() { local LC_ALL=C; echo "${#1}"; }
 # ".<name>.mp3.partial" (a file name has at most 255 bytes) is shortened.
 free_name() { # file name
     local LC_ALL=C.UTF-8
-    local stem=${1%.*} ext=.${1##*.} n=1 name
-    while (( $(bytes "$stem$ext") > 230 )); do
+    local stem=${1%.*} ext=.${1##*.} n=1 name len
+    bytes "$stem$ext" len
+    while (( len > 230 )); do
         stem=${stem%?}
+        bytes "$stem$ext" len
     done
     name=$stem$ext
     while [[ -e $HOTFOLDER_OUT/$name.mp3 || -e $HOTFOLDER_PROCESSED/$name ]]; do
@@ -77,9 +86,7 @@ do
             PARTIAL="$HOTFOLDER_OUT/.$MP3NAME.partial"
             log hotfolder "converting $FILENAME -> $MP3NAME"
             if ! ffmpeg -nostdin -y -i "$SRC" -vn -acodec libmp3lame -q:a 2 -f mp3 "$PARTIAL"; then
-                rm -f "$PARTIAL"
-                FAILED["$SRC"]="$SIZE:$MTIME"
-                log_error hotfolder "ffmpeg failed for $FILENAME, leaving it in place; it is tried again when it changes"
+                give_up "ffmpeg failed for $FILENAME, leaving it in place; it is tried again when it changes"
                 continue
             fi
             # The copy may have gone on while ffmpeg ran.
@@ -89,16 +96,11 @@ do
                 continue
             fi
             if ! mv -f "$PARTIAL" "$DEST"; then
-                rm -f "$PARTIAL"
-                FAILED["$SRC"]="$SIZE:$MTIME"
-                log_error hotfolder "could not write $DEST; $FILENAME is tried again when it changes"
+                give_up "could not write $DEST; $FILENAME is tried again when it changes"
                 continue
             fi
-            # Without this check a source that can't be moved was converted
-            # again every round.
             if ! mv "$SRC" "$HOTFOLDER_PROCESSED/$NAME"; then
-                FAILED["$SRC"]="$SIZE:$MTIME"
-                log_error hotfolder "$MP3NAME is done, but $FILENAME could not be moved to $HOTFOLDER_PROCESSED;" \
+                give_up "$MP3NAME is done, but $FILENAME could not be moved to $HOTFOLDER_PROCESSED;" \
                     "it is not converted again unless it changes"
                 continue
             fi
@@ -112,7 +114,7 @@ do
         SEEN["$key"]="${NOW[$key]}"
     done
     for key in "${!FAILED[@]}"; do
-        [[ -n ${NOW["$key"]-} ]] || unset 'FAILED["$key"]'
+        [[ ${NOW["$key"]-} == "${FAILED[$key]}" ]] || unset 'FAILED["$key"]'
     done
 
     sleep "$HOTFOLDER_INTERVAL"

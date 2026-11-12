@@ -127,15 +127,20 @@ for p in ytdl.sh server.py watch.sh; do
 done
 
 # Lists survive a restart and a new container on the same /config.
-up() { # the image's own health check command, instead of Docker's 30 s interval
-    local check
-    check=$(docker inspect -f '{{index .Config.Healthcheck.Test 1}}' "$NAME")
-    for _ in $(seq 60); do
-        docker exec "$NAME" sh -c "$check" >/dev/null 2>&1 && return 0
+wait_for() { # tries command...
+    local n=$1; shift
+    for _ in $(seq "$n"); do
+        "$@" && return 0
         sleep 1
     done
     return 1
 }
+# The image's own health check command, instead of Docker's 30 s interval.
+# shellcheck disable=SC2317,SC2329 # called through wait_for
+healthy() { docker exec "$1" sh -c "$(docker inspect -f '{{index .Config.Healthcheck.Test 1}}' "$1")" >/dev/null 2>&1; }
+# shellcheck disable=SC2317,SC2329 # called through wait_for
+not_running() { [[ $(docker inspect -f '{{.State.Status}}' "$1") != running ]]; }
+up() { wait_for 60 healthy "$NAME"; }
 saved() { grep -q 'example.com/a' "$DIR/config/lists/channels.list"; }
 docker restart "$NAME" >/dev/null
 if up && saved; then echo "ok: list kept after a restart"; else echo "FAILED: list after a restart"; fail=1; fi
@@ -151,16 +156,9 @@ fi
 
 # A setting the services can't use stops the container with an ERROR line
 # instead of a download loop without pause or a web UI that never starts.
-stopped() { # container
-    for _ in $(seq 30); do
-        [[ $(docker inspect -f '{{.State.Status}}' "$1") == running ]] || return 0
-        sleep 1
-    done
-    return 1
-}
 docker run -d --name "$NAME-bad" -e PUID="$PUID" -e PGID="$PGID" -e SLEEP_INTERVAL=abc -e WEBUI_PORT=0 \
     -e HOTFOLDER_INTERVAL=0 -e SETTLE_SECONDS=1m "$IMAGE" >/dev/null
-if stopped "$NAME-bad"; then echo "ok: bad settings stop the container"; else echo "FAILED: bad settings: still running"; fail=1; fi
+if wait_for 30 not_running "$NAME-bad"; then echo "ok: bad settings stop the container"; else echo "FAILED: bad settings: still running"; fail=1; fi
 bad_log=$(docker logs "$NAME-bad" 2>&1)
 for setting in SLEEP_INTERVAL=abc WEBUI_PORT=0 HOTFOLDER_INTERVAL=0 SETTLE_SECONDS=1m; do
     if grep -q "ERROR: $setting " <<<"$bad_log"; then echo "ok: ERROR for $setting"; else echo "FAILED: no ERROR for $setting"; fail=1; fi
@@ -172,7 +170,10 @@ LINKDIR=$(mktemp -d -p "$DIR")
 mkdir -p "$LINKDIR/ytdlpconfig"
 ln -s /etc/tdld-smoke-link "$LINKDIR/ytdlpconfig/cookies.txt"
 docker run -d --name "$NAME-link" -e PUID="$PUID" -e PGID="$PGID" -v "$LINKDIR:/config" "$IMAGE" >/dev/null
-sleep 10
+# Done once the services are up or the init step gave up.
+# shellcheck disable=SC2317,SC2329 # called through wait_for
+settled() { healthy "$1" || not_running "$1"; }
+wait_for 60 settled "$NAME-link" || true
 if docker diff "$NAME-link" | grep -q tdld-smoke-link; then
     echo "FAILED: init wrote through a symlink in /config"; fail=1
 else

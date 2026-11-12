@@ -49,6 +49,8 @@ check() { # description, command...
 absent() { [[ ! -e $1 ]]; }
 # shellcheck disable=SC2317,SC2329 # called through check
 present() { [[ -e $1 ]]; }
+# shellcheck disable=SC2317,SC2329 # called through check
+once() { [[ $(grep -c -- "$1" "$CASE/log") == 1 ]]; }
 
 # 1. A copy that keeps the source's old mtime and is still growing.
 new_case growing
@@ -81,8 +83,7 @@ sleep 4
 stop_watch
 check "failed conversion leaves no output" bash -c "[[ -z \$(ls -A '$CASE/out') ]]"
 check "failed conversion leaves the source" present "$CASE/in/bad.mp4"
-check "failed conversion is not retried while the file is unchanged" \
-    bash -c "[[ \$(grep -c 'converting bad.mp4' '$CASE/log') == 1 ]]"
+check "failed conversion is not retried while the file is unchanged" once 'converting bad.mp4'
 
 # 4. The container stops during a conversion; the next start cleans up.
 new_case stopped
@@ -119,8 +120,7 @@ sleep 5
 stop_watch
 chmod 755 "$CASE/done"
 check "unmovable original: mp3 written" present "$CASE/out/stuck.mp4.mp3"
-check "unmovable original: converted only once" \
-    bash -c "[[ \$(grep -c 'converting stuck.mp4' '$CASE/log') == 1 ]]"
+check "unmovable original: converted only once" once 'converting stuck.mp4'
 check "unmovable original: the error is logged" grep -q 'ERROR: .*could not be moved' "$CASE/log"
 check "unmovable original: no 'done' line" bash -c "! grep -q 'done: stuck' '$CASE/log'"
 
@@ -147,6 +147,6 @@ stop_watch
 check "long name: converted" bash -c "ls '$CASE/out' | grep -q '\.mp4\.mp3\$'"
 check "long name: original moved" absent "$CASE/in/$long"
 check "long name: shortened name is valid UTF-8" bash -c "ls '$CASE/out' | iconv -f UTF-8 -t UTF-8 >/dev/null"
-check "long name: converted only once" bash -c "[[ \$(grep -c 'converting ' '$CASE/log') == 1 ]]"
+check "long name: converted only once" once 'converting '
 
 exit $fail
