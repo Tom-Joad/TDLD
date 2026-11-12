@@ -53,7 +53,7 @@ jobs:
       - name: Shellcheck
         run: |
           shellcheck root/etc/s6-overlay/s6-rc.d/*/run root/defaults/ytdl.sh \
-            root/app/hotfolder/watch.sh root/app/lib/log.sh tests/smoke.sh tests/test_hotfolder.sh
+            root/app/hotfolder/watch.sh root/app/lib/log.sh root/app/init/config.sh tests/smoke.sh tests/test_hotfolder.sh
 
       - name: Python syntax
         run: python3 -m py_compile root/app/webui/server.py

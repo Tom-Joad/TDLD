@@ -5,106 +5,73 @@
 # script) and the data folders. Runs as root once per container start,
 # before the services.
 
+# A step that fails stops the container (S6_BEHAVIOUR_IF_STAGE2_FAILS=2)
+# instead of starting the services on a half-prepared /config.
+set -euo pipefail
+
 # shellcheck source=/dev/null
 source /app/lib/log.sh
+
+# The defaults the services use as well.
+: "${SLEEP_INTERVAL:=3600}" "${HOTFOLDER_INTERVAL:=300}" "${SETTLE_SECONDS:=60}" "${WEBUI_PORT:=8083}"
 
 # The first line of the log: the version and the settings that matter (never
 # cookies or tokens). The bug report template asks for it.
 log init "TDLD ${TDLD_VERSION:-unknown} starting: PUID=${PUID:-} PGID=${PGID:-} UMASK=${UMASK:-} TZ=${TZ:-}" \
-    "SLEEP_INTERVAL=${SLEEP_INTERVAL:-3600} HOTFOLDER_INTERVAL=${HOTFOLDER_INTERVAL:-300}" \
-    "AUTO_UPDATE_YTDLP=${AUTO_UPDATE_YTDLP:-false} WEBUI_PORT=${WEBUI_PORT:-8083}" \
+    "SLEEP_INTERVAL=${SLEEP_INTERVAL} HOTFOLDER_INTERVAL=${HOTFOLDER_INTERVAL}" \
+    "AUTO_UPDATE_YTDLP=${AUTO_UPDATE_YTDLP:-false} WEBUI_PORT=${WEBUI_PORT}" \
     "TDLD_ALLOWED_HOSTS=${TDLD_ALLOWED_HOSTS:-}"
+
+# A value sleep can't read made the download loop and the hotfolder run
+# without any pause (yt-dlp against YouTube nonstop), and a bad port made the
+# web UI restart forever. Refuse them here, before anything starts.
+invalid=0
+bad() { log_error init "$*"; invalid=1; }
+# What sleep reads: seconds, optionally with a fraction or a unit; not zero.
+interval='^[0-9]+(\.[0-9]+)?[smhd]?$'
+for name in SLEEP_INTERVAL HOTFOLDER_INTERVAL; do
+    [[ ${!name} =~ $interval && ${!name} =~ [1-9] ]] \
+        || bad "${name}=${!name} is not a positive interval: use seconds (3600) or a unit (30m, 6h, 1d)"
+done
+[[ $SETTLE_SECONDS =~ ^[0-9]+$ ]] || bad "SETTLE_SECONDS=${SETTLE_SECONDS} is not a whole number of seconds"
+if [[ ! $WEBUI_PORT =~ ^[0-9]{1,5}$ ]] || (( 10#$WEBUI_PORT < 1 || 10#$WEBUI_PORT > 65535 )); then
+    bad "WEBUI_PORT=${WEBUI_PORT} is not a port number (1-65535)"
+fi
+(( ! invalid )) || exit 1
 
 HOTFOLDER_IN=${HOTFOLDER_IN:-/hotfolder/input}
 HOTFOLDER_OUT=${HOTFOLDER_OUT:-/hotfolder/output}
 HOTFOLDER_PROCESSED=${HOTFOLDER_PROCESSED:-/hotfolder/processed}
-LISTS=(audioonly channels playlists)
-LEGACY=/app/data
 
-mkdir -p /config/locks /config/lists /config/ytdlpconfig /config/archives /config/logs /config/scripts /config/cache \
-    /downloads /hotfolder
-
-# Up to 1.x everything lived in /app/data. If that is still mounted and
-# /config is new, take over the lists, the yt-dlp configs (with their paths
-# rewritten) and the download archives, so nothing is downloaded twice.
-if [[ -d ${LEGACY}/config/lists && ! -f /config/lists/channels.list ]]; then
-    log init "migrating ${LEGACY} to /config"
-    cp -R "${LEGACY}/config/lists/." /config/lists/
-    if [[ -d ${LEGACY}/archives ]]; then
-        cp -R "${LEGACY}/archives/." /config/archives/
+# /config is prepared as abc (see config.sh). Ownership is fixed first, so
+# abc can write what an older version or another PUID left behind.
+if [[ -z ${LSIO_NON_ROOT_USER:-} ]]; then
+    # Only walk /config when something in it belongs to someone else.
+    # -h: a symlink is changed itself, never the file it points to.
+    if [[ -n $(find /config \( ! -user abc -o ! -group abc \) -print -quit) ]]; then
+        lsiown -R -h abc:abc /config
     fi
-    for file in "${LEGACY}"/config/ytdlpconfig/*; do
-        [[ -f ${file} ]] || continue
-        sed -e 's#/app/data/output#/downloads#g' \
-            -e 's#/app/data/config/#/config/#g' \
-            -e 's#/app/data/#/config/#g' \
-            "${file}" > "/config/ytdlpconfig/$(basename "${file}")"
-    done
-    if [[ -f ${LEGACY}/scripts/ytdl.sh ]]; then
-        log_warn init "${LEGACY}/scripts/ytdl.sh is not migrated, it uses the old paths. If you" \
-            "changed it, carry your changes over to /config/scripts/ytdl.sh"
-    fi
-    if ! grep -qs ' /downloads ' /proc/mounts; then
-        log_warn init "/downloads is not mapped: new downloads stay inside the container." \
-            "Map your download folder (before: ${LEGACY}/output) to /downloads"
-    fi
-    # The old image made everything world-writable (777).
-    find /config/lists /config/archives /config/ytdlpconfig -type f -exec chmod 644 {} +
+    as_abc() { s6-setuidgid abc "$@"; }
+else
+    as_abc() { "$@"; }
 fi
 
-for name in "${LISTS[@]}"; do
-    if [[ ! -f /config/lists/${name}.list ]]; then
-        touch "/config/lists/${name}.list"
-    fi
-    if [[ ! -f /config/ytdlpconfig/${name}.config ]]; then
-        cp "/defaults/ytdlpconfig/${name}.config" /config/ytdlpconfig/
-    fi
-done
-
-if [[ ! -f /config/ytdlpconfig/cookies.txt ]]; then
-    cat > /config/ytdlpconfig/cookies.txt <<'COOKIES'
-# Netscape HTTP Cookie File
-# Placeholder file. yt-dlp is configured to read cookies from this file
-# (see the --cookies line in the *.config files) to avoid YouTube's
-# "Sign in to confirm you're not a bot" errors. Replace this file with
-# cookies exported from a logged-in YouTube session, e.g. via the
-# "Get cookies.txt LOCALLY" browser extension. See the README for details.
-COOKIES
-fi
-
-# The copy is the user's to edit, so it is only replaced while it is still a
-# script an earlier release copied, unchanged. Without that, installations
-# would keep running the old loop forever. When a release changes
-# root/defaults/ytdl.sh, add the sha256 of the version it replaces here.
-OLD_YTDL_SHA256S=(
-    a8b90768b428dee03ed8f4c3f00dbcd3a935da7d5ffaf48dd7ed00192d06643e # 2.0.0 to 3.1.1
-)
-if [[ ! -f /config/scripts/ytdl.sh ]]; then
-    cp /defaults/ytdl.sh /config/scripts/ytdl.sh
-elif ! cmp -s /defaults/ytdl.sh /config/scripts/ytdl.sh; then
-    current=$(sha256sum < /config/scripts/ytdl.sh)
-    if [[ " ${OLD_YTDL_SHA256S[*]} " == *" ${current%% *} "* ]]; then
-        cp /defaults/ytdl.sh /config/scripts/ytdl.sh
-        log init "/config/scripts/ytdl.sh updated to this version's script"
-    else
-        log_warn init "/config/scripts/ytdl.sh differs from this version's script (/defaults/ytdl.sh)." \
-            "Without its changes the scheduled run neither logs time stamps nor waits for a manual download"
-    fi
-fi
+mkdir -p /downloads /hotfolder
+as_abc bash /app/init/config.sh
 
 # Updating yt-dlp is opt-in. It runs here rather than in svc-ytdl, so a
-# restarting service doesn't reinstall it each time.
-if [[ ${AUTO_UPDATE_YTDLP,,} == true ]]; then
+# restarting service doesn't reinstall it each time. With the `default`
+# extra, so pip also moves what yt-dlp pins exactly with each release
+# (yt-dlp-ejs, which solves YouTube's JavaScript challenges); without it a
+# new yt-dlp would run with the old yt-dlp-ejs.
+if [[ ${AUTO_UPDATE_YTDLP:-false} == [Tt][Rr][Uu][Ee] ]]; then
     log init "updating yt-dlp"
-    if ! python3 -m pip install --break-system-packages --no-cache-dir --quiet -U yt-dlp; then
+    if ! python3 -m pip install --break-system-packages --no-cache-dir --quiet -U "yt-dlp[default]"; then
         log_warn init "yt-dlp update failed, keeping $(yt-dlp --version)"
     fi
 fi
 
-if [[ -z ${LSIO_NON_ROOT_USER} ]]; then
-    # /config only holds small files; downloads live in /downloads.
-    lsiown -R abc:abc /config
-
+if [[ -z ${LSIO_NON_ROOT_USER:-} ]]; then
     # Data folders that Docker created itself (a missing host folder or a
     # fresh volume) belong to root, and abc couldn't write there. Only those
     # are handed over; folders that already belong to someone else are left

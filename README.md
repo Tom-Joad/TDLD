@@ -91,7 +91,14 @@ default 5 minutes), then moves the original into `/hotfolder/processed`.
 
 Supported source extensions: `.mp4`, `.mkv`, `.avi`, `.mov`, `.webm`, `.flv`, `.wmv`, `.m4v`
 (case-insensitive). The output filename includes the original extension (e.g. `clip.mp4.mp3`,
-`clip.mkv.mp3`) so two files that only differ by extension never overwrite each other.
+`clip.mkv.mp3`) so two files that only differ by extension never overwrite each other. A file
+whose name is still taken in `output` or `processed` by an earlier one becomes `clip (2).mp4.mp3`
+and `processed/clip (2).mp4`; very long names are shortened to fit.
+
+A file counts as complete when it hasn't changed for one check and for `SETTLE_SECONDS`. A file
+that ffmpeg can't convert, or whose original can't be moved to `processed`, stays where it is
+with an `ERROR:` line in the log and is only tried again when it changes or the container
+restarts.
 
 ## Supported architectures
 
@@ -175,9 +182,10 @@ IDs of your DSM user (`id <user>` over SSH).
 | `-e PGID=1000` | Group ID that owns new files |
 | `-e UMASK=022` | Permissions of new files; `002` makes them writable for the group |
 | `-e TZ=Europe/Berlin` | Timezone, [list](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones#List) |
-| `-e SLEEP_INTERVAL=3600` | Seconds between download-list runs |
-| `-e AUTO_UPDATE_YTDLP=false` | `true`: update yt-dlp with pip once at every container start, instead of waiting for a new image |
-| `-e HOTFOLDER_INTERVAL=300` | Seconds between hotfolder checks |
+| `-e SLEEP_INTERVAL=3600` | Seconds between download-list runs, or with a unit (`30m`, `6h`, `1d`) |
+| `-e AUTO_UPDATE_YTDLP=false` | `true`: update yt-dlp and the packages it pins (such as `yt-dlp-ejs`) with pip once at every container start, instead of waiting for a new image; see [SECURITY.md](SECURITY.md) |
+| `-e HOTFOLDER_INTERVAL=300` | Seconds between hotfolder checks, or with a unit (`5m`) |
+| `-e SETTLE_SECONDS=60` | How long a hotfolder file must stay unchanged before it is converted |
 | `-e WEBUI_PORT=8083` | Port the web UI listens on inside the container |
 | `-e TDLD_ALLOWED_HOSTS=` | Further host names for the web UI, comma-separated (e.g. `tdld.example.com` behind a reverse proxy); see [Web UI](#web-ui) |
 | `-e HOTFOLDER_IN=/hotfolder/input` | Folder watched for new video files |
@@ -186,6 +194,9 @@ IDs of your DSM user (`id <user>` over SSH).
 | `-v /config` | Lists, yt-dlp configs, archives, logs and the download script |
 | `-v /downloads` | Downloaded media |
 | `-v /hotfolder` | Hotfolder input, output and processed files (optional) |
+
+An interval, `SETTLE_SECONDS` or `WEBUI_PORT` that can't be used (`abc`, `0`) stops the
+container with an `ERROR:` line in its log that names the setting.
 
 ## User / group identifiers
 

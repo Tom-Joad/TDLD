@@ -8,12 +8,56 @@ comes with a new major version.
 ## [Unreleased]
 
 ### Changed
+- `AUTO_UPDATE_YTDLP=true` now also updates the packages yt-dlp pins exactly
+  with each release, such as `yt-dlp-ejs` (YouTube's JavaScript challenges).
+  Before, a new yt-dlp ran with the old `yt-dlp-ejs`. SECURITY.md says what
+  the update trades off.
+- The hotfolder no longer overwrites an earlier file of the same name: the
+  mp3 and the processed original become `clip (2).mp4.mp3` and
+  `processed/clip (2).mp4`.
+- A hotfolder file that ffmpeg can't convert is tried again only when it
+  changes or the container restarts, not every round.
+- The web UI only saves the lists on `POST /save`, the address its form
+  uses. Other addresses answer `404` instead of saving whatever list fields
+  the request carries.
 - Updated the base image (linuxserver/baseimage-alpine 3.24 from `d07ad0e`
   to `7315b19`).
 - `/downloads` and `/hotfolder` are declared as volumes like `/config`, so
   their content no longer ends up in the container if one isn't mapped.
 
+### Fixed
+- An interval that can't be used (`SLEEP_INTERVAL`, `HOTFOLDER_INTERVAL`,
+  e.g. `abc` or `0`), a bad `SETTLE_SECONDS` or a bad `WEBUI_PORT` now stops
+  the container with an `ERROR:` line naming the setting. Before, the
+  download loop ran yt-dlp against the sites without any pause, the
+  hotfolder checked nonstop, or the web UI restarted forever, while the
+  container looked healthy.
+- The hotfolder no longer converts a file again every round when the
+  original can't be moved to `processed`; it logs an `ERROR:` instead of
+  `done:`.
+- The hotfolder converts files whose names are too long for the
+  `.mp3.partial` name, by shortening the output name, instead of failing
+  every round.
+- A step of the start-up setup that fails now stops the container instead
+  of starting the services on a half-prepared `/config`.
+- When the lists can't be saved (full disk, read-only `/config`), a
+  download can't be started, or the page or a log can't be read, the web UI
+  answers with an error message and
+  logs an `ERROR:` line, instead of dropping the connection with a
+  traceback in the log.
+- A manual download whose address contains a control character (such as an
+  encoded NUL byte) is refused as invalid instead of ending in a traceback.
+- A manual download started while the page was checking which downloads
+  run is no longer refused as busy now and then.
+
+### Security
+- The start-up setup, which runs as root, writes into `/config` as `abc`,
+  never through a symlink placed there, and hands over ownership without
+  following symlinks. It now only walks `/config` when something in it
+  belongs to another user.
+
 ### Docs
+- `SETTLE_SECONDS` is listed under Parameters.
 - The README's tag table no longer names an old version.
 - SECURITY.md describes how images are built, pinned and scanned.
 - Changelog links for 2.0.2 to 2.0.4; the 3.0.0 link compares against 2.0.4.
