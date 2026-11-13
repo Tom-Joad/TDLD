@@ -6,7 +6,7 @@
   <Network>bridge</Network>
   <Shell>bash</Shell>
   <Privileged>false</Privileged>
-  <Support>https://github.com/Tom-Joad/TDLD/issues</Support>
+  <Support>https://github.com/Tom-Joad/TDLD</Support>
   <Project>https://github.com/Tom-Joad/TDLD</Project>
   <Icon>https://raw.githubusercontent.com/Tom-Joad/unraid-templates/main/icons/tdld.png</Icon>
   <TemplateURL>https://raw.githubusercontent.com/Tom-Joad/TDLD/main/unraid/tdld.xml</TemplateURL>
