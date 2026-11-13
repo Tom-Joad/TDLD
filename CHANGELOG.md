@@ -5,7 +5,7 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
-## [Unreleased]
+## [3.3.1] - 2026-11-13
 
 ### Changed
 - The Unraid template's support link points to the repository, like the
@@ -297,7 +297,7 @@ upgrading**, see "Upgrading from 1.x" in the README.
 ## 07.05.2022
 - Initial release.
 
-[Unreleased]: https://github.com/Tom-Joad/TDLD/compare/v3.3.0...HEAD
+[3.3.1]: https://github.com/Tom-Joad/TDLD/compare/v3.3.0...v3.3.1
 [3.3.0]: https://github.com/Tom-Joad/TDLD/compare/v3.2.0...v3.3.0
 [3.2.0]: https://github.com/Tom-Joad/TDLD/compare/v3.1.1...v3.2.0
 [3.1.1]: https://github.com/Tom-Joad/TDLD/compare/v3.1.0...v3.1.1
