@@ -163,7 +163,8 @@ under **Docker** → **Add Container**.
 
 The template is set up with `PUID=99`, `PGID=100` (Unraid's `nobody:users`) and `UMASK=002`, so new
 files are writable for the `users` group, e.g. over SMB. Point **Downloads** at a media share
-rather than appdata.
+rather than appdata. Step-by-step instructions are in
+[`unraid/README-UNRAID.md`](unraid/README-UNRAID.md).
 
 ### Synology (Container Manager)
 
