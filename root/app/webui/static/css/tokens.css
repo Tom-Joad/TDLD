@@ -1,0 +1,305 @@
+/* Tom Joad Media design tokens.
+   Snapshot of the design system's generated tokens.css, taken 2026-10-04 (version 15).
+   Do not edit by hand: replace it with a fresh copy from the design system. */
+:root, [data-theme="paper"] {
+  --ink: #16130d; /* The hard ink. Ground of the dark sections and the footer; also text-strong on paper. Carries paper-bright, paper-dim and paper-faint. */
+  --paper: #f2ead9; /* Page ground of every light section. Carries ink, umber, stone and ash. */
+  --red: #d5482a; /* Signal Red, the stamp. The wordmark's full-stop, the eyebrow, the primary button, the back-to-top control. Hold it under ~10% of any surface. CONTRAST: 3.66:1 on paper — the 13px eyebrow set in it misses 4.5:1. The brand's own value, kept exact; use it as a mark, and do not set running copy in it. */
+  --sand: #e9dabd; /* Warmer paper ground for a section that needs to sit apart from paper without going dark. */
+  --ash: #9a9488; /* Footer legal line on ink. Do not use for body copy. */
+  --stone: #6f6a5e; /* Muted copy on paper: stat labels, figure captions. CONTRAST: 4.50:1 on paper — exactly at the floor, and 4.46:1 on paper-2, just under it. Keep it off the recessed panel for small text. */
+  --umber: #3a352b; /* Body copy on paper — hero lead, post body, about text. */
+  --bark: #2e271c; /* Raised panel on an ink ground; the secondary button fill. Carries paper-bright. */
+  --paper-2: #efe9df; /* Recessed panel on paper. From the brand manual — the live homepage does not use it. */
+  --pitch: #0f0d09; /* Deepest ground, behind a paper panel lifted by shadow-desk. From the brand manual — the live homepage does not use it. */
+  --paper-bright: #f3f1ea; /* Primary text on ink and on a photograph; also the lightbox control fill. */
+  --paper-dim: #cfcabd; /* Secondary copy on ink — the showreel lead, lightbox EXIF. */
+  --paper-faint: #b2ab9d; /* Metadata on ink: series row dates. Small sizes only where 4.5:1 is not required. */
+  --rose-caption: #e7c9bf; /* Caption under a tile title, over the darkened zone of a photograph. Live-only — the brand manual does not list it. */
+  --field-amber: #e0a64a; /* Night Lights. A meter, bar or mark on a dark ground — 8.58:1 on ink, safe for text too. Never a page ground. Not used on the live homepage. */
+  --field-slate: #6e7b82; /* Architecture. A meter, bar or mark on a dark ground (4.25:1 on ink — clears the 3:1 floor for marks, not for small text). Not used on the live homepage. */
+  --field-rust: #a85a38; /* Lost Place. A meter, bar or mark on a dark ground (3.69:1 on ink — marks only, never text). Not used on the live homepage. */
+  --field-moss: #6f7350; /* Outdoor. A meter, bar or mark on a dark ground (3.75:1 on ink — marks only, never text). Not used on the live homepage. */
+  --rule-on-paper: rgba(22, 19, 13, 0.16); /* 1px hairline dividing content on paper — the nav underline, card borders, series rows. */
+  --rule-on-ink: rgba(243, 241, 234, 0.16); /* 1px hairline on an ink ground. From the brand manual — the live homepage rules on ink are drawn in ink instead. */
+  --scrim-caption: rgba(22, 19, 13, 0.82); /* Foot of the bottom-up wash behind a tile caption. Pair with a transparent stop, never a flat fill. */
+  --scrim-exif: rgba(22, 19, 13, 0.75); /* Lighter wash behind the EXIF strip on a gallery thumbnail. */
+  --scrim-solid: rgba(22, 19, 13, 0.95); /* Flat ink scrim behind the lightbox. */
+  --red-95: rgba(213, 72, 42, 0.95); /* Fill of the circular play control, so the frame reads faintly through it. */
+  --glow-red: rgba(213, 72, 42, 0.3); /* Hot stop of the radial glow in the corner of the cover and the footer. Fades to transparent at 60%. */
+  --surface-page: var(--paper); /* Alias. Ground of any light section. */
+  --surface-panel: var(--paper-2); /* Alias. Recessed panel on paper. */
+  --surface-desk: var(--pitch); /* Alias. The dark desk behind a lifted paper panel. */
+  --surface-ink: var(--ink); /* Alias. Ground of any dark section. */
+  --surface-ink-raised: var(--bark); /* Alias. Panel raised off an ink ground. */
+  --text-strong: var(--ink); /* Alias. Display type and headings on paper. */
+  --text-body: var(--umber); /* Alias. Body copy on paper and on sand. */
+  --text-muted: var(--stone); /* Alias. Labels and captions on paper. */
+  --text-accent: var(--red); /* Alias. Eyebrows and the tagline's full-stop on paper. */
+  --text-on-ink: var(--paper-bright); /* Alias. Primary copy on ink. */
+  --text-on-ink-muted: var(--paper-dim); /* Alias. Secondary copy on ink. */
+  --text-on-ink-faint: var(--paper-faint); /* Alias. Metadata on ink. */
+  --border-hairline: var(--rule-on-paper); /* Alias. The 1px divider. */
+  --border-structural: var(--ink); /* Alias. The 2px rule that bounds a stat band or a section. */
+  --border-on-ink: var(--rule-on-ink); /* Alias. The 1px divider on ink. */
+  --action-primary-bg: var(--red); /* Primary button fill. Carries action-primary-fg. */
+  --action-primary-fg: #ffffff; /* Label on action-primary-bg, tracked caps at 13px/800. CONTRAST: 4.38:1 — just under 4.5:1. The live button's own pair, kept exact; ink on red would read better but is not this brand. */
+  --action-secondary-bg: var(--bark); /* Secondary button fill on paper. Carries action-secondary-fg. */
+  --action-secondary-fg: var(--paper-bright); /* Label on action-secondary-bg. */
+  --status-positive: var(--field-moss); /* Status on a dark ground. Status never uses red — red is brand, not error. Pair it with a word or icon — never colour alone — and keep it out of running text. */
+  --status-warning: var(--field-amber); /* Status on a dark ground. Always paired with a word, never colour alone. Pair it with a word or icon — never colour alone — and keep it out of running text. */
+  --status-negative: var(--field-rust); /* Status on a dark ground. Always paired with a word, never colour alone. Pair it with a word or icon — never colour alone — and keep it out of running text. */
+  --status-neutral: var(--field-slate); /* Status on a dark ground. Pair it with a word or icon — never colour alone — and keep it out of running text. */
+  --shadow-control: 0 6px 18px rgba(22, 19, 13, 0.3); /* Under the back-to-top control. */
+  --shadow-lightbox: 0 2px 14px rgba(0, 0, 0, 0.35); /* Under a lightbox arrow at rest. */
+  --shadow-lightbox-hover: 0 4px 20px rgba(0, 0, 0, 0.45); /* Under a lightbox arrow on hover, where it also scales to 1.08. */
+  --shadow-desk: 0 30px 90px rgba(0, 0, 0, 0.55); /* Lifts a paper panel off surface-desk. From the brand manual — the live homepage does not use it. */
+}
+:root {
+  --section-pad-x: 56px; /* Horizontal padding of every section. Steps to 32px under 1100px and 20px under 560px. */
+  --section-pad-y: 64px; /* Vertical padding at the top of a section. The homepage runs 22 / 34 / 48 / 60 / 64 / 72 at the top and 30 / 44 / 46 / 76 / 84 at the foot — see the brand book. */
+  --section-pad-y-tight: 34px; /* Vertical padding where a section sits directly under its heading. */
+  --measure-content: 1600px; /* Maximum content width. Nothing on the site runs wider. */
+  --measure-prose: 640px; /* Measure for body copy — post body, about text. */
+  --measure-lightbox: 820px; /* Measure for the lightbox caption column. */
+  --measure-caption: 340px; /* Measure for a tile caption over a photograph. */
+  --space-4: 4px; /* Gap between a stat figure and its label. */
+  --space-6: 6px; /* Gap between a photo caption and its meta line; chip padding. */
+  --space-10: 10px; /* Horizontal padding inside a photo chip. */
+  --space-12: 12px; /* Gap between tags and buttons in a row; gap inside a section header. */
+  --space-14: 14px; /* Gap between a section index and its heading; tight grid gap. */
+  --space-18: 18px; /* Gap between rows of controls. */
+  --space-20: 20px; /* Vertical padding of a stat cell. */
+  --space-22: 22px; /* Padding of a photo caption; vertical padding of the site header and a stat cell. */
+  --space-24: 24px; /* Inset of the fixed back-to-top control. */
+  --space-26: 26px; /* Gap between navigation links; padding of a demo panel. */
+  --space-34: 34px; /* Gap between blocks inside a section. */
+  --space-48: 48px; /* Gap between large blocks; the top offset of staggered bands. */
+  --radius: 0; /* Every card, button, tag, panel and frame. There is no rounded corner in this brand. */
+  --radius-circle: 50%; /* The play control, the back-to-top button, the lightbox arrows and avatars. Nothing else. */
+  --stroke-hairline: 1px; /* Divides — nav underline, card border, series row, drawn in border-hairline. */
+  --stroke-structural: 2px; /* Bounds and structures — the rules above and below a stat band, drawn in border-structural. */
+  --stroke-accent: 3px; /* Marks a top edge in red. From the brand manual — the live homepage does not use it. */
+  --opacity-hover: 0.55; /* A link or tile on hover. */
+  --opacity-press: 0.4; /* A control while pressed. */
+  --opacity-disabled: 0.35; /* A disabled control. */
+  --opacity-watermark: 0.62; /* The corner watermark on a photograph, at 14% of image width and 4.5% inset. */
+  --duration-fade: 250ms; /* Opacity fade on links, tiles and the EXIF strip. */
+  --duration-row: 350ms; /* The series row sliding its padding on hover. */
+  --duration-zoom: 900ms; /* The slow image zoom inside a frame on hover. */
+  --ease-standard: ease; /* Paired with duration-fade. */
+  --ease-analog: cubic-bezier(0.2, 0.7, 0.2, 1); /* Paired with duration-zoom and duration-row. */
+  --font-display: "Anton", "Arial Narrow", sans-serif;
+  --font-body: "Archivo", system-ui, sans-serif;
+  --font-heavy: "Archivo Black", "Archivo", sans-serif;
+  --text-hero: 400 200px/0.82 var(--font-display); /* The cover lockup. Steps to 130px under 1100px and 76px under 560px. Always uppercase. */
+  --text-footer-tagline: 400 128px/0.85 var(--font-display); /* The closing tagline. Steps to 84px then 48px. The full-stop is set in red. */
+  --text-post-title: 400 88px/0.9 var(--font-display); /* Title of a single post. Steps to 64px then 40px. */
+  --text-reel-title: 400 76px/0.9 var(--font-display); /* Heading of the showreel section on ink. Steps to 56px then 40px. */
+  --text-h2: 400 64px/0.92 var(--font-display); /* Section heading. Steps to 48px then 36px. One or two words, often broken across lines. */
+  --text-tile-title: 400 34px/1 var(--font-display); /* Series title laid over the darkest zone of a photograph, in paper-bright. */
+  --text-series-title: 400 32px/1 var(--font-display); /* Title in a series row. Steps to 22px under 560px. */
+  --text-wordmark: 400 26px/1 var(--font-display); /* The wordmark in the site header. The full-stop is red; never set the wordmark over a frame that already carries the watermark. */
+  --text-lead: 500 23px/1.5 var(--font-body); /* The hero lead under the cover, in text-body. Steps to 18px under 860px. */
+  --text-body-copy: 500 19px/1.65 var(--font-body); /* Post body and about copy, in text-body on paper. Steps to 17px. Measure 640px. Named body-copy because --text-body is the body text colour. */
+  --text-body-on-ink: 500 18px/1.55 var(--font-body); /* The showreel lead, in text-on-ink-muted on surface-ink. */
+  --text-caption: 600 14px/1.4 var(--font-body); /* Caption under a tile title, in rose-caption over a photograph. */
+  --text-meta: 600 13px/1.4 var(--font-body); /* Footer legal line in ash; lightbox EXIF in text-on-ink-muted at 0.06em tracking. */
+  --text-eyebrow: 700 13px/1.2 var(--font-body); /* Tracked caps above a section heading, in text-accent. Factual, separated by middots. */
+  --text-button: 800 13px/1.2 var(--font-body); /* Button label, uppercase. States the destination — never "Learn more". */
+  --text-nav: 700 12px/1.2 var(--font-body); /* Header and stat labels, uppercase. Outbound links close with an arrow. */
+  --text-social: 700 12px/1.2 var(--font-body); /* Footer social links, uppercase on ink. */
+  --text-figcaption: 600 13px/1.3 var(--font-body); /* Caption under a figure on paper, uppercase in text-muted. */
+  --text-exif: 600 11px/1.2 var(--font-body); /* EXIF strip revealed on a gallery thumbnail, in text-on-ink over scrim-exif. */
+  --text-row-meta: 500 11px/1.2 var(--font-body); /* Bare date in a series row, in text-on-ink-faint. No "Published on", no relative dates. */
+  --text-stat: 800 36px/1 var(--font-body); /* Stat figure in a band bounded by 2px ink rules. Archivo at 800 — the live site does not use Archivo Black. */
+  --text-control: 400 20px/1 var(--font-body); /* Glyph inside a circular control, such as the back-to-top arrow. */
+}
+.hero {
+  font-family: var(--font-display);
+  font-size: 200px;
+  line-height: 0.82;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+}
+.footer-tagline {
+  font-family: var(--font-display);
+  font-size: 128px;
+  line-height: 0.85;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+.post-title {
+  font-family: var(--font-display);
+  font-size: 88px;
+  line-height: 0.9;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+}
+.reel-title {
+  font-family: var(--font-display);
+  font-size: 76px;
+  line-height: 0.9;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.h2 {
+  font-family: var(--font-display);
+  font-size: 64px;
+  line-height: 0.92;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+.tile-title {
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.series-title {
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.wordmark {
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+.lead {
+  font-family: var(--font-body);
+  font-size: 23px;
+  line-height: 1.5;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.body-copy {
+  font-family: var(--font-body);
+  font-size: 19px;
+  line-height: 1.65;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.body-on-ink {
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.55;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.caption {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.meta {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.eyebrow {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+.button {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+.nav {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+.social {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+.figcaption {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+.exif {
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.row-meta {
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+.stat {
+  font-family: var(--font-body);
+  font-size: 36px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.control {
+  font-family: var(--font-body);
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+/* Local addition: the -latin-ext faces (Polish, Turkish, other Latin-script languages).
+   Keep them when refreshing this file. Ranges are Google Fonts' own. */
+@font-face {
+  font-family: "Anton";
+  src: url("fonts/Anton-Regular-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Anton";
+  src: url("fonts/Anton-Regular-latin-ext.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Archivo";
+  src: url("fonts/Archivo-Variable-latin.woff2") format("woff2");
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Archivo";
+  src: url("fonts/Archivo-Variable-latin-ext.woff2") format("woff2");
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}

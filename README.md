@@ -66,9 +66,10 @@ one of them needs a one-time manual step from you:
 
 ## Web UI
 
-A minimal web UI is served on port `8083`. Open `http://<host>:8083/` in a browser to edit the
-three lists (**Save All** writes straight to the `.list` files the download loop reads), start a
-single download with one of the three profiles, and read the latest log lines.
+A small web UI is served on port `8083`. Open `http://<host>:8083/` in a browser to start a single
+download with one of the three profiles, edit the three lists (**Save lists** writes straight to
+the `.list` files the download loop reads) and read the last 500 lines of each log. It works on a
+phone as well, and brings its own fonts: the page loads nothing from other servers.
 
 The web UI has no login. Don't expose it to the internet; put it behind a reverse proxy with
 authentication if you need access from outside your network. It protects itself against web
@@ -82,6 +83,8 @@ pages open in the same browser:
   as the web UI itself. To open it under another name, e.g. behind a reverse proxy, list that
   name in `TDLD_ALLOWED_HOSTS`; other names get `403 unknown host name`.
 * A manual download takes only one `http://` or `https://` address.
+* Its pages run no script and load styles and fonts only from the web UI itself
+  (`Content-Security-Policy`).
 
 ## Hotfolder (video → mp3)
 
