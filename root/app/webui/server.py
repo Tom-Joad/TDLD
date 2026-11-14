@@ -119,9 +119,10 @@ NOTICE_TEMPLATE = (
 
 LOG_ROW_TEMPLATE = """      <li>
         <span class="label">{label}</span>
-        <a class="ghost" href="/log?name={key}.log">Scheduled →</a>
-        <a class="ghost" href="/log?name={key}-manual.log">Manual →</a>
+{links}
       </li>"""
+
+LOG_LINK_TEMPLATE = '        <a class="nav" href="/log?name={name}">{kind} →</a>'
 
 LOG_PAGE_TEMPLATE = """{head}
 <main class="section">
@@ -273,7 +274,8 @@ def escape(s):
 
 
 def static_files():
-    """Address -> (file, content type) for every file of the page's look.
+    """Address -> (content, content type) for every file of the page's look,
+    read once at start (about 120 KB).
 
     Only these addresses are served, so a path such as /static/../server.py
     never reaches the disk.
@@ -285,7 +287,8 @@ def static_files():
             if content_type:
                 full = os.path.join(folder, name)
                 address = "/static/" + os.path.relpath(full, STATIC_DIR).replace(os.sep, "/")
-                files[address] = (full, content_type)
+                with open(full, "rb") as f:
+                    files[address] = (f.read(), content_type)
     return files
 
 
@@ -444,7 +447,13 @@ class Handler(BaseHTTPRequestHandler):
         profile_options = "".join(
             PROFILE_OPTION_TEMPLATE.format(key=key, label=label) for key, label in LISTS.items()
         )
-        log_rows = "\n".join(LOG_ROW_TEMPLATE.format(key=key, label=label) for key, label in LISTS.items())
+        log_rows = "\n".join(
+            LOG_ROW_TEMPLATE.format(label=label, links="\n".join(
+                LOG_LINK_TEMPLATE.format(name=name, kind=kind)
+                for name, (log_label, kind) in LOG_FILES.items() if log_label == label
+            ))
+            for label in LISTS.values()
+        )
         return PAGE_TEMPLATE.format(
             head=head("TDLD"),
             notices=NOTICES_TEMPLATE.format(notices="\n".join(notices)) if notices else "",
@@ -460,13 +469,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def _send_static(self, path):
         """A file of the page's look, if the address names one; 404 otherwise."""
-        try:
-            name, content_type = STATIC_FILES[path]
-            with open(name, "rb") as f:
-                data = f.read()
-        except (KeyError, OSError):
+        if path not in STATIC_FILES:
             self._refuse(404, "not found")
             return
+        data, content_type = STATIC_FILES[path]
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
@@ -513,8 +519,7 @@ class Handler(BaseHTTPRequestHandler):
     def _handle_log_view(self, query):
         name = query.get("name", [""])[0]
         if name not in LOG_FILES:
-            self.send_response(404)
-            self.end_headers()
+            self._refuse(404, "not found")
             return
         try:
             content = escape(read_log_tail(name))

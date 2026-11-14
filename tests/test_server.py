@@ -309,7 +309,6 @@ class RequestTests(HTTPTestCase):
         self.assertIn(b"could not show the page", reply)
 
 
-
 class PageTests(HTTPTestCase):
     def get(self, port, path, host="localhost"):
         reply = self.raw(port, f"GET {path} HTTP/1.0\r\nHost: {host}\r\n\r\n".encode())
