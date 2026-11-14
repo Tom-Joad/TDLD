@@ -5,7 +5,7 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
-## [Unreleased]
+## [3.4.0] - Unreleased
 
 ### Changed
 - The web UI has a new look: the dark Tom Joad Media design with its own
