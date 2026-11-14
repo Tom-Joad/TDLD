@@ -19,8 +19,12 @@ LISTS = {
     "playlists": "Playlists",
 }
 MAX_BODY_SIZE = 1024 * 1024  # 1 MiB, more than enough for a list of URLs
-LOG_FILES = {f"{key}.log": f"{label} (scheduled)" for key, label in LISTS.items()}
-LOG_FILES.update({f"{key}-manual.log": f"{label} (manual)" for key, label in LISTS.items()})
+# The two logs of a list: file name suffix and kind of run.
+LOG_KINDS = (("", "Scheduled"), ("-manual", "Manual"))
+# Log file -> (list, kind of run).
+LOG_FILES = {
+    f"{key}{suffix}.log": (label, kind) for key, label in LISTS.items() for suffix, kind in LOG_KINDS
+}
 LOG_TAIL_LINES = 500
 # How much of the end of a log is read to find those lines.
 LOG_TAIL_BYTES = 1024 * 1024
@@ -32,89 +36,123 @@ LOCKS_DIR = os.environ.get("LOCKS_DIR", "/config/locks")
 # A client that stays silent for this long is dropped, so it can't hold a thread.
 REQUEST_TIMEOUT = 30
 
-PAGE_TEMPLATE = """<!doctype html>
-<html>
+# The page's look: tokens.css and base.css (the design), app.css (this
+# page). Served under /static/ with the version in the address, so an update
+# of the image reaches the browser at once.
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+STATIC_TYPES = {".css": "text/css; charset=utf-8", ".woff2": "font/woff2"}
+VERSION = os.environ.get("TDLD_VERSION", "dev")
+
+HEAD_TEMPLATE = """<!doctype html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>ytdl Download Lists</title>
-<style>
-  body {{ font-family: sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; background:#111; color:#eee; }}
-  h1 {{ margin-bottom: 0.25rem; }}
-  .banner {{ background:#2ecc71; color:#000; padding:0.5rem 1rem; border-radius:4px; margin-bottom:1rem; }}
-  fieldset {{ border:1px solid #444; border-radius:6px; margin-bottom:1.25rem; }}
-  legend {{ padding:0 0.5rem; font-weight:bold; }}
-  textarea {{ width:100%; box-sizing:border-box; min-height:180px; font-family:monospace; font-size:0.9rem;
-             background:#1a1a1a; color:#eee; border:1px solid #333; border-radius:4px; padding:0.5rem; }}
-  button {{ background:#2ecc71; color:#000; border:none; padding:0.6rem 1.2rem; border-radius:4px; font-size:1rem; cursor:pointer; }}
-  button:hover {{ background:#3ee684; }}
-  .log-links {{ display:flex; flex-wrap:wrap; gap:0.5rem; }}
-  .log-links a {{ color:#2ecc71; text-decoration:none; border:1px solid #333; border-radius:4px;
-                 padding:0.4rem 0.8rem; }}
-  .log-links a:hover {{ background:#1a1a1a; }}
-  pre {{ background:#1a1a1a; color:#eee; border:1px solid #333; border-radius:4px; padding:0.75rem;
-        overflow-x:auto; white-space:pre-wrap; word-break:break-all; }}
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#16130d">
+<title>{title}</title>
+<link rel="stylesheet" href="/static/css/tokens.css?v={version}">
+<link rel="stylesheet" href="/static/css/base.css?v={version}">
+<link rel="stylesheet" href="/static/css/app.css?v={version}">
 </head>
 <body>
-<h1>ytdl Download Lists</h1>
-{banner}
-<fieldset>
-  <legend>Download a single link now</legend>
-  <form method="post" action="/download">
-    <input type="url" name="url" placeholder="https://..." required
-           style="width:100%; box-sizing:border-box; font-size:0.9rem; background:#1a1a1a; color:#eee;
-                  border:1px solid #333; border-radius:4px; padding:0.5rem; margin-bottom:0.5rem;">
-    <div style="display:flex; gap:0.5rem; align-items:center;">
-      <select name="profile" style="flex:1; background:#1a1a1a; color:#eee; border:1px solid #333;
-              border-radius:4px; padding:0.5rem;">
-        {profile_options}
-      </select>
-      <button type="submit">Download Now</button>
-    </div>
-  </form>
-</fieldset>
-<form method="post" action="/save">
-{fields}
-<button type="submit">Save All</button>
-</form>
-<fieldset>
-  <legend>Logs</legend>
-  <div class="log-links">
-    {log_links}
+<header class="bar">
+  <div class="container">
+    <a class="wordmark" href="/">TDLD<span class="stop">.</span></a>
+    {nav}
   </div>
-</fieldset>
+</header>
+"""
+
+PAGE_TEMPLATE = """{head}
+<main>
+<section class="section">
+  <div class="container">
+{notices}
+    <p class="eyebrow">One link · Now</p>
+    <h2>Download</h2>
+    <form class="download" method="post" action="/download">
+      <label>
+        <span class="label">Link</span>
+        <input type="url" name="url" placeholder="https://..." required>
+      </label>
+      <label>
+        <span class="label">Profile</span>
+        <select name="profile">
+          {profile_options}
+        </select>
+      </label>
+      <button class="btn btn--secondary" type="submit">Download now</button>
+    </form>
+  </div>
+</section>
+<section class="section">
+  <div class="container">
+    <p class="eyebrow">On the timer · One link per line</p>
+    <h2>Lists</h2>
+    <form method="post" action="/save">
+      <div class="lists">
+{fields}
+      </div>
+      <button class="btn btn--primary" type="submit">Save lists</button>
+    </form>
+  </div>
+</section>
+<section class="section">
+  <div class="container">
+    <p class="eyebrow">Last {tail_lines} lines</p>
+    <h2>Logs</h2>
+    <ul class="logs">
+{log_rows}
+    </ul>
+  </div>
+</section>
+</main>
 </body>
 </html>
 """
 
-LOG_LINK_TEMPLATE = '<a href="/log?name={name}" target="_blank">{label}</a>'
+NOTICES_TEMPLATE = """    <div class="notices">
+{notices}
+    </div>"""
 
-LOG_PAGE_TEMPLATE = """<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>{name} - ytdl Logs</title>
-<style>
-  body {{ font-family: sans-serif; max-width: 1100px; margin: 2rem auto; padding: 0 1rem; background:#111; color:#eee; }}
-  pre {{ background:#1a1a1a; color:#eee; border:1px solid #333; border-radius:4px; padding:0.75rem;
-        overflow-x:auto; white-space:pre-wrap; word-break:break-all; font-size:0.85rem; }}
-</style>
-</head>
-<body>
-<h1>{name}</h1>
-<pre>{content}</pre>
+NOTICE_TEMPLATE = (
+    '<p class="notice notice--{kind}" role="status"><span class="label">{word}</span>'
+    "<span>{text}</span></p>"
+)
+
+LOG_ROW_TEMPLATE = """      <li>
+        <span class="label">{label}</span>
+{links}
+      </li>"""
+
+LOG_LINK_TEMPLATE = '        <a class="nav" href="/log?name={key}{suffix}.log">{kind} →</a>'
+
+LOG_PAGE_TEMPLATE = """{head}
+<main class="section">
+  <div class="container">
+    <p class="eyebrow">{kind} · Last {tail_lines} lines · <span class="file">{name}</span></p>
+    <h2>{label}</h2>
+    <pre>{content}</pre>
+  </div>
+</main>
 </body>
 </html>
 """
 
-FIELD_TEMPLATE = """
-<fieldset>
-  <legend>{label} ({filename})</legend>
-  <textarea name="{key}" placeholder="One URL per line">{content}</textarea>
-</fieldset>
-"""
+FIELD_TEMPLATE = """        <label>
+          <span class="label">{label} · <span class="file">{filename}</span></span>
+          <textarea name="{key}" placeholder="One URL per line" spellcheck="false">{content}</textarea>
+        </label>"""
 
 PROFILE_OPTION_TEMPLATE = '<option value="{key}">{label}</option>'
+
+# What the page says after a redirect: query flag -> (status, word, text).
+REDIRECT_NOTICES = {
+    "saved": ("positive", "Saved", "The lists are saved."),
+    "downloading": ("positive", "Started", "Download started, the log shows its progress."),
+    "busy": ("warning", "Busy", "Not started: a download is already running for this profile."),
+    "invalid": ("negative", "Not started", "Enter one web address starting with http:// or https://."),
+}
 
 # A manual download takes one web address, nothing else: a value starting
 # with "-" would reach yt-dlp as an option (--exec runs shell commands).
@@ -136,7 +174,11 @@ ALLOWED_HOSTS = {
 
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
-    "Content-Security-Policy": "frame-ancestors 'none'",
+    # Styles come only from /static/: no inline style, no script at all.
+    "Content-Security-Policy": (
+        "default-src 'self'; script-src 'none'; object-src 'none'; base-uri 'none'; "
+        "form-action 'self'; frame-ancestors 'none'"
+    ),
     "Referrer-Policy": "same-origin",
 }
 
@@ -232,6 +274,44 @@ def write_list(key, content):
 
 def escape(s):
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def static_files():
+    """Address -> (content, content type) for every file of the page's look,
+    read once at start (about 120 KB).
+
+    Only these addresses are served, so a path such as /static/../server.py
+    never reaches the disk.
+    """
+    files = {}
+    for folder, _, names in os.walk(STATIC_DIR):
+        for name in names:
+            content_type = STATIC_TYPES.get(os.path.splitext(name)[1])
+            if content_type:
+                full = os.path.join(folder, name)
+                address = "/static/" + os.path.relpath(full, STATIC_DIR).replace(os.sep, "/")
+                with open(full, "rb") as f:
+                    files[address] = (f.read(), content_type)
+    return files
+
+
+STATIC_FILES = static_files()
+
+
+def head(title, nav=""):
+    """The top of every page: styles, header with the wordmark."""
+    return HEAD_TEMPLATE.format(title=title, version=VERSION, nav=nav)
+
+
+# The parts of the main page that never change, built once.
+MAIN_HEAD = head("TDLD")
+PROFILE_OPTIONS = "".join(PROFILE_OPTION_TEMPLATE.format(key=key, label=label) for key, label in LISTS.items())
+LOG_ROWS = "\n".join(
+    LOG_ROW_TEMPLATE.format(label=label, links="\n".join(
+        LOG_LINK_TEMPLATE.format(key=key, suffix=suffix, kind=kind) for suffix, kind in LOG_KINDS
+    ))
+    for key, label in LISTS.items()
+)
 
 
 def stamp(message):
@@ -364,26 +444,35 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header(name, value)
         super().end_headers()
 
-    def _render(self, banner=""):
+    def _render(self, flags):
+        notices = [NOTICE_TEMPLATE.format(kind=kind, word=word, text=text)
+                   for flag, (kind, word, text) in REDIRECT_NOTICES.items() if flag in flags]
         running = running_profiles()
         if running:
             names = ", ".join(f"{LISTS[key]} ({kind})" for key, kind in running.items())
-            banner += f'<div class="banner">Download running now: {names}.</div>'
-        fields = "".join(
+            notices.append(NOTICE_TEMPLATE.format(
+                kind="neutral", word="Running", text=f"Download running now: {names}."))
+        fields = "\n".join(
             FIELD_TEMPLATE.format(
                 label=label, filename=f"{key}.list", key=key, content=escape(read_list(key))
             )
             for key, label in LISTS.items()
         )
-        profile_options = "".join(
-            PROFILE_OPTION_TEMPLATE.format(key=key, label=label) for key, label in LISTS.items()
-        )
-        log_links = "".join(
-            LOG_LINK_TEMPLATE.format(name=name, label=label) for name, label in LOG_FILES.items()
-        )
         return PAGE_TEMPLATE.format(
-            banner=banner, fields=fields, profile_options=profile_options, log_links=log_links
+            head=MAIN_HEAD,
+            notices=NOTICES_TEMPLATE.format(notices="\n".join(notices)) if notices else "",
+            fields=fields, profile_options=PROFILE_OPTIONS, log_rows=LOG_ROWS,
+            tail_lines=LOG_TAIL_LINES,
         ).encode("utf-8")
+
+    def _send(self, data, content_type="text/html; charset=utf-8", cache=None):
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        if cache:
+            self.send_header("Cache-Control", cache)
+        self.end_headers()
+        self.wfile.write(data)
 
     def _refuse(self, status, message):
         self.send_response(status)
@@ -410,42 +499,37 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_log_view(parse_qs(path.query))
             return
 
-        if "saved=1" in self.path:
-            banner = '<div class="banner">Saved.</div>'
-        elif "downloading=1" in self.path:
-            banner = '<div class="banner">Download started, check the logs for progress.</div>'
-        elif "busy=1" in self.path:
-            banner = '<div class="banner">Not started: a download is already running for this profile.</div>'
-        elif "invalid=1" in self.path:
-            banner = '<div class="banner">Not started: enter one web address starting with http:// or https://.</div>'
-        else:
-            banner = ""
+        if path.path.startswith("/static/"):
+            static = STATIC_FILES.get(path.path)
+            if static is None:
+                self._refuse(404, "not found")
+            else:
+                self._send(*static, cache="max-age=86400")
+            return
+        flags = {flag for flag, values in parse_qs(path.query).items() if "1" in values}
         try:
-            page = self._render(banner)
+            page = self._render(flags)
         except OSError as e:
             self._fail("show the page", e)
             return
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(page)
+        self._send(page)
 
     def _handle_log_view(self, query):
         name = query.get("name", [""])[0]
         if name not in LOG_FILES:
-            self.send_response(404)
-            self.end_headers()
+            self._refuse(404, "not found")
             return
         try:
             content = escape(read_log_tail(name))
         except OSError as e:
             self._fail("read the log", e)
             return
-        page = LOG_PAGE_TEMPLATE.format(name=escape(name), content=content).encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(page)
+        label, kind = LOG_FILES[name]
+        page = LOG_PAGE_TEMPLATE.format(
+            head=head(f"{label} · {kind} log · TDLD", '<a class="nav" href="/">Back to the lists</a>'),
+            kind=kind, label=label, name=name, content=content, tail_lines=LOG_TAIL_LINES,
+        ).encode("utf-8")
+        self._send(page)
 
     def do_POST(self):
         if not self._host_ok():

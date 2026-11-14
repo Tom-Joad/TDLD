@@ -4,6 +4,7 @@ import fcntl
 import importlib.util
 import io
 import os
+import re
 import socket
 import tempfile
 import threading
@@ -204,12 +205,14 @@ class WriteListTests(ServerTestCase):
         self.assertEqual(os.stat(path).st_mode & 0o777, 0o664)
 
 
-class RequestTests(ServerTestCase):
+class HTTPTestCase(ServerTestCase):
+    """A real server on a free port, spoken to over a socket."""
+
     def start(self, timeout=None):
         if timeout is not None:
             self.server.Handler.timeout = timeout
         httpd = ThreadingHTTPServer(("127.0.0.1", 0), self.server.Handler)
-        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        threading.Thread(target=httpd.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
         self.addCleanup(httpd.server_close)
         self.addCleanup(httpd.shutdown)
         return httpd.server_address[1]
@@ -230,6 +233,21 @@ class RequestTests(ServerTestCase):
                 return None
             return data
 
+    def post(self, port, path, body):
+        reply = self.raw(
+            port, f"POST {path} HTTP/1.0\r\nHost: localhost\r\nContent-Length: {len(body)}\r\n\r\n".encode() + body
+        )
+        self.assertIsNotNone(reply)
+        return reply
+
+    def get(self, port, path, host="localhost"):
+        reply = self.raw(port, f"GET {path} HTTP/1.0\r\nHost: {host}\r\n\r\n".encode())
+        self.assertIsNotNone(reply)
+        head, _, body = reply.partition(b"\r\n\r\n")
+        return head.decode("latin-1"), body
+
+
+class RequestTests(HTTPTestCase):
     def test_unicode_digits_in_content_length_get_400(self):
         port = self.start()
         for value in ("²", "³", "1_0"):
@@ -266,13 +284,6 @@ class RequestTests(ServerTestCase):
         )
         self.assertEqual(self.server.read_list("channels"), "https://old\n")
 
-    def post(self, port, path, body):
-        reply = self.raw(
-            port, f"POST {path} HTTP/1.0\r\nHost: localhost\r\nContent-Length: {len(body)}\r\n\r\n".encode() + body
-        )
-        self.assertIsNotNone(reply)
-        return reply
-
     def test_only_save_saves_the_lists(self):
         port = self.start(timeout=5)
         for path in ("/", "/download/x", "/other", "/save/../x"):
@@ -299,9 +310,90 @@ class RequestTests(ServerTestCase):
     def test_unreadable_config_gets_an_answer(self):
         port = self.start(timeout=5)
         with mock.patch.object(self.server, "try_lock", side_effect=OSError(30, "Read-only file system")):
-            reply = self.raw(port, b"GET / HTTP/1.0\r\nHost: localhost\r\n\r\n")
-        self.assertTrue(reply.startswith(b"HTTP/1.0 500"), reply[:40])
-        self.assertIn(b"could not show the page", reply)
+            head, body = self.get(port, "/")
+        self.assertTrue(head.startswith("HTTP/1.0 500"), head)
+        self.assertIn(b"could not show the page", body)
+
+
+class PageTests(HTTPTestCase):
+    def test_page_fits_phones_and_has_no_inline_style_or_script(self):
+        port = self.start(timeout=5)
+        head, body = self.get(port, "/")
+        self.assertTrue(head.startswith("HTTP/1.0 200"), head)
+        self.assertIn(b'<html lang="en">', body)
+        self.assertIn(b'<meta name="viewport" content="width=device-width, initial-scale=1">', body)
+        self.assertNotIn(b"<style", body)
+        self.assertNotIn(b"style=", body)
+        self.assertNotIn(b"<script", body)
+        self.assertNotIn(b'target="_blank"', body)
+        self.assertIn("default-src 'self'; script-src 'none'", head)
+        self.assertIn("frame-ancestors 'none'", head)
+
+    def test_every_stylesheet_and_font_the_page_names_is_served(self):
+        port = self.start(timeout=5)
+        _, body = self.get(port, "/")
+        sheets = re.findall(rb'href="(/static/[^"?]+)\?v=([^"]+)"', body)
+        self.assertEqual([s for s, _ in sheets],
+                         [b"/static/css/tokens.css", b"/static/css/base.css", b"/static/css/app.css"])
+        for sheet, _ in sheets:
+            head, css = self.get(port, sheet.decode())
+            self.assertTrue(head.startswith("HTTP/1.0 200"), (sheet, head))
+            self.assertIn("Content-Type: text/css; charset=utf-8", head)
+            for font in re.findall(rb'url\("(fonts/[^"]+)"\)', css):
+                head, data = self.get(port, "/static/css/" + font.decode())
+                self.assertTrue(head.startswith("HTTP/1.0 200"), (font, head))
+                self.assertIn("Content-Type: font/woff2", head)
+                self.assertEqual(data[:4], b"wOF2")
+
+    def test_only_the_files_of_the_look_are_served(self):
+        port = self.start(timeout=5)
+        for path in ("/static/../server.py", "/static/css/../../server.py", "/static/server.py",
+                     "/static/css/fonts/OFL-Anton.txt", "/static/css/", "/static/css/nothing.css"):
+            head, _ = self.get(port, path)
+            self.assertTrue(head.startswith("HTTP/1.0 404"), (path, head))
+        head, _ = self.get(port, "/static/css/app.css", host="attacker.example")
+        self.assertTrue(head.startswith("HTTP/1.0 403"), head)
+
+    def test_notices_after_a_redirect(self):
+        port = self.start(timeout=5)
+        _, body = self.get(port, "/")
+        self.assertNotIn(b"notice", body)
+        for query, kind, text in (("saved=1", "positive", b"The lists are saved."),
+                                  ("downloading=1", "positive", b"Download started"),
+                                  ("busy=1", "warning", b"already running"),
+                                  ("invalid=1", "negative", b"Enter one web address")):
+            _, body = self.get(port, "/?" + query)
+            self.assertIn(f"notice--{kind}".encode(), body, query)
+            self.assertIn(text, body, query)
+            self.assertEqual(body.count(b'class="notice '), 1, query)
+
+    def test_running_download_is_shown_with_a_word(self):
+        port = self.start(timeout=5)
+        with mock.patch.object(self.server, "running_profiles", return_value={"playlists": "scheduled"}):
+            _, body = self.get(port, "/")
+        self.assertIn(b'<span class="label">Running</span>', body)
+        self.assertIn(b"Download running now: Playlists (scheduled).", body)
+
+    def test_list_content_is_escaped(self):
+        self.server.write_list("channels", "https://a/</textarea><b>x")
+        port = self.start(timeout=5)
+        _, body = self.get(port, "/")
+        self.assertIn(b"https://a/&lt;/textarea&gt;&lt;b&gt;x", body)
+
+    def test_log_page(self):
+        with open(os.path.join(self.logs, "channels-manual.log"), "w") as f:
+            f.write("line <one>\n")
+        port = self.start(timeout=5)
+        _, body = self.get(port, "/")
+        self.assertIn(b'href="/log?name=channels-manual.log"', body)
+        head, body = self.get(port, "/log?name=channels-manual.log")
+        self.assertTrue(head.startswith("HTTP/1.0 200"), head)
+        self.assertIn(b"<h2>Channels</h2>", body)
+        self.assertIn(b"Manual \xc2\xb7 Last 500 lines", body)
+        self.assertIn(b"line &lt;one&gt;", body)
+        self.assertIn(b'<a class="nav" href="/">Back to the lists</a>', body)
+        head, _ = self.get(port, "/log?name=../server.py")
+        self.assertTrue(head.startswith("HTTP/1.0 404"), head)
 
 
 class CheckTests(ServerTestCase):

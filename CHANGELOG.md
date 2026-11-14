@@ -5,6 +5,23 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
+## [3.4.0] - Unreleased
+
+### Changed
+- The web UI has a new look: the dark Tom Joad Media design with its own
+  fonts (Anton, Archivo), the three lists side by side on wide screens, a
+  row per list for its scheduled and manual log, and notices that say
+  what happened with a word. Logs open in the same tab, with a way back to
+  the lists.
+
+### Fixed
+- The web UI fits phones: it has a viewport, so a phone no longer lays it
+  out 980px wide and shrinks it (#63).
+
+### Security
+- The web UI's pages allow no script and load styles and fonts only from
+  the web UI itself (`Content-Security-Policy`).
+
 ## [3.3.1] - 2026-11-13
 
 ### Changed

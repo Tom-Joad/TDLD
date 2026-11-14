@@ -1,0 +1,243 @@
+/* TDLD web UI on the ink ground. Loads after tokens.css and base.css and
+   builds on their tokens. URLs and log lines are set in the system
+   monospace font, a deliberate exception to the two families: a link or a
+   log line has to be read character by character. */
+
+:root {
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  /* The ink ground for the whole page: the aliases base.css reads point at
+     their on-ink values, so body, headings, labels and borders follow. */
+  --surface-page: var(--surface-ink);
+  --text-body: var(--text-on-ink-muted);
+  --text-strong: var(--text-on-ink);
+  --text-muted: var(--text-on-ink-faint);
+  --border-hairline: var(--border-on-ink);
+  --border-structural: var(--border-on-ink);
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-10);
+}
+
+/* ---- Header: the wordmark, and on the log page the way back ---------- */
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--space-14) var(--section-pad-x);
+  border-bottom: var(--stroke-hairline) solid var(--border-hairline);
+  background: var(--surface-page);
+}
+
+.bar .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-20);
+}
+
+.wordmark,
+.nav {
+  color: var(--text-strong);
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+/* ---- Sections ---------------------------------------------------------- */
+
+.section + .section {
+  border-top: var(--stroke-hairline) solid var(--border-hairline);
+}
+
+.label {
+  display: block;
+  margin-bottom: var(--space-6);
+}
+
+.file {
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ---- Fields on ink: a raised panel with a hairline ------------------ */
+
+input,
+select,
+textarea {
+  width: 100%;
+  color: var(--text-strong);
+  background: var(--surface-ink-raised);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+}
+
+input[type="url"],
+textarea {
+  font-family: var(--font-mono);
+}
+
+textarea {
+  display: block;
+  min-height: 220px;
+  resize: vertical;
+}
+
+select option {
+  color: var(--ink);
+  background: var(--paper-bright);
+}
+
+/* The secondary button is bark on bark here: a hairline keeps its edge. */
+.btn--secondary {
+  border: var(--stroke-hairline) solid var(--border-hairline);
+}
+
+/* ---- Download: link, profile and button in one row ------------------ */
+
+/* Labels in the first row, controls in the second: the controls stretch to
+   one height whatever their own metrics. */
+.download {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 14rem) auto;
+  grid-template-rows: auto auto;
+  column-gap: var(--space-14);
+}
+
+.download label {
+  display: grid;
+  grid-row: span 2;
+  grid-template-rows: subgrid;
+}
+
+.download .btn {
+  grid-area: 2 / 3;
+  white-space: nowrap;
+}
+
+/* ---- Lists: three columns side by side where they fit ---------------- */
+
+.lists {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-20);
+  margin-bottom: var(--space-20);
+}
+
+/* ---- Logs: one row per list ----------------------------------------- */
+
+.logs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--stroke-hairline) solid var(--border-hairline);
+}
+
+.logs li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-10) var(--space-24);
+  padding: var(--space-14) 0;
+  border-bottom: var(--stroke-hairline) solid var(--border-hairline);
+}
+
+.logs .label {
+  flex: 1 1 10rem;
+  margin: 0;
+  color: var(--text-strong);
+}
+
+/* ---- Notices: a status colour, always with a word -------------------- */
+
+.notices {
+  margin-bottom: var(--space-34);
+}
+
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-6) var(--space-14);
+  margin-bottom: var(--space-14);
+  padding: var(--space-14) var(--space-20);
+  background: var(--surface-ink-raised);
+  border-left: var(--stroke-accent) solid var(--status-neutral);
+  color: var(--text-strong);
+}
+
+.notice:last-child {
+  margin-bottom: 0;
+}
+
+.notice .label {
+  margin: 0;
+}
+
+/* The status colour marks the edge. Only amber is light enough on bark to
+   colour the word too; the others leave it in the muted tone. */
+.notice--positive { border-left-color: var(--status-positive); }
+.notice--warning { border-left-color: var(--status-warning); }
+.notice--negative { border-left-color: var(--status-negative); }
+.notice--warning .label { color: var(--status-warning); }
+
+/* ---- Log page ------------------------------------------------------- */
+
+pre {
+  margin: 0;
+  padding: var(--space-20);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font: var(--text-meta);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  color: var(--text-strong);
+  background: var(--surface-ink-raised);
+  border: var(--stroke-hairline) solid var(--border-hairline);
+}
+
+/* ---- Narrow screens: rows become stacks, every item flush ----------- */
+
+@media (max-width: 1100px) {
+  .lists {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .download {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    row-gap: var(--space-14);
+  }
+
+  .download label {
+    display: block;
+    grid-row: auto;
+  }
+
+  .download .btn {
+    grid-area: auto;
+  }
+
+  .download .btn,
+  .lists + .btn {
+    width: 100%;
+  }
+}
+
+/* The log row: the list's name on its own line, both links flush below. */
+@media (max-width: 560px) {
+  .logs .label {
+    flex-basis: 100%;
+  }
+}

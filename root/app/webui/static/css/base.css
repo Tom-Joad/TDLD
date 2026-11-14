@@ -1,0 +1,227 @@
+/* Tom Joad Media base styles for plain HTML pages and web UIs.
+   Load after tokens.css. Every value comes from a token; the few literal
+   sizes are the step-downs the token notes give for narrow screens. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-page);
+  color: var(--text-body);
+  font: var(--text-body-copy);
+}
+
+/* Display type: Anton, always uppercase, tight. */
+h1,
+h2,
+h3 {
+  margin: 0 0 0.3em;
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+h1 {
+  font: var(--text-post-title);
+  letter-spacing: 0.005em;
+}
+
+h2 {
+  font: var(--text-h2);
+  letter-spacing: 0.01em;
+}
+
+h3 {
+  font: var(--text-series-title);
+}
+
+p {
+  margin: 0 0 1em;
+  max-width: var(--measure-prose);
+}
+
+a {
+  color: inherit;
+  transition: opacity var(--duration-fade) var(--ease-standard);
+}
+
+a:hover {
+  opacity: var(--opacity-hover);
+}
+
+:focus-visible {
+  outline: var(--stroke-structural) solid currentColor;
+  outline-offset: 2px;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+hr {
+  border: 0;
+  border-top: var(--stroke-hairline) solid var(--border-hairline);
+  margin: 0;
+}
+
+/* Layout */
+
+.section {
+  padding: var(--section-pad-y) var(--section-pad-x);
+}
+
+.section--ink {
+  background: var(--surface-ink);
+  color: var(--text-on-ink-muted);
+}
+
+.section--ink h1,
+.section--ink h2,
+.section--ink h3 {
+  color: var(--text-on-ink);
+}
+
+.container {
+  max-width: var(--measure-content);
+  margin: 0 auto;
+}
+
+/* Tracked caps: eyebrows, labels, navigation. */
+
+.eyebrow {
+  color: var(--text-accent);
+  text-transform: uppercase;
+}
+
+/* The red full-stop that closes the wordmark and the tagline. */
+
+.stop {
+  color: var(--red);
+}
+
+.label {
+  font: var(--text-nav);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Buttons: square, tracked caps, hover fades. One primary per view. */
+
+.btn {
+  display: inline-block;
+  padding: 15px 24px;
+  border: 0;
+  border-radius: var(--radius);
+  font: var(--text-button);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity var(--duration-fade) var(--ease-standard);
+}
+
+.btn:hover {
+  opacity: var(--opacity-hover);
+}
+
+.btn:active {
+  opacity: var(--opacity-press);
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: var(--opacity-disabled);
+  cursor: default;
+}
+
+.btn--primary {
+  background: var(--action-primary-bg);
+  color: var(--action-primary-fg);
+}
+
+.btn--secondary {
+  background: var(--action-secondary-bg);
+  color: var(--action-secondary-fg);
+}
+
+.btn--outline {
+  background: transparent;
+  color: var(--ink);
+  border: var(--stroke-structural) solid var(--ink);
+}
+
+/* Cards and form fields: hairline border, no radius, no shadow. */
+
+.card {
+  background: var(--surface-panel);
+  border: var(--stroke-hairline) solid var(--border-hairline);
+  padding: var(--section-pad-y-tight);
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  font-size: 17px;
+  color: var(--ink);
+  background: var(--paper-bright);
+  border: var(--stroke-hairline) solid var(--border-structural);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+
+/* Narrow screens: the step-downs from the token notes. */
+
+@media (max-width: 1100px) {
+  :root {
+    --section-pad-x: 32px;
+  }
+
+  h1 {
+    font-size: 64px;
+  }
+
+  h2 {
+    font-size: 48px;
+  }
+}
+
+@media (max-width: 560px) {
+  :root {
+    --section-pad-x: 20px;
+  }
+
+  body {
+    font-size: 17px;
+  }
+
+  h1 {
+    font-size: 40px;
+  }
+
+  h2 {
+    font-size: 36px;
+  }
+
+  h3 {
+    font-size: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
