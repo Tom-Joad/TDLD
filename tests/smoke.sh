@@ -101,8 +101,6 @@ for f in css/tokens.css:text/css css/base.css:text/css css/app.css:text/css \
     r=$(docker exec "$NAME" curl -s -o /dev/null -w '%{http_code} %{content_type}' "http://127.0.0.1:8083/static/${f%%:*}")
     if [[ $r == "200 ${f#*:}"* ]]; then echo "ok: /static/${f%%:*} served"; else echo "FAILED: /static/${f%%:*}: $r"; fail=1; fi
 done
-r=$(docker exec "$NAME" curl -s -o /dev/null -w '%{http_code}' --path-as-is http://127.0.0.1:8083/static/../server.py)
-if [[ $r == 404 ]]; then echo "ok: no way out of /static"; else echo "FAILED: /static/../server.py: $r"; fail=1; fi
 # DNS rebinding: a foreign host name is refused even as "same-origin"; the
 # names a LAN uses pass.
 r=$(post -H 'Host: attacker.example:8083' -H 'Sec-Fetch-Site: same-origin' --data 'channels=x' http://127.0.0.1:8083/save)

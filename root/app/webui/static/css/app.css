@@ -5,16 +5,18 @@
 
 :root {
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  /* The ink ground for the whole page: the aliases base.css reads point at
+     their on-ink values, so body, headings, labels and borders follow. */
+  --surface-page: var(--surface-ink);
+  --text-body: var(--text-on-ink-muted);
+  --text-strong: var(--text-on-ink);
+  --text-muted: var(--text-on-ink-faint);
+  --border-hairline: var(--border-on-ink);
+  --border-structural: var(--border-on-ink);
 }
 
 body {
-  background: var(--surface-ink);
-  color: var(--text-on-ink-muted);
   -webkit-font-smoothing: antialiased;
-}
-
-h2 {
-  color: var(--text-on-ink);
 }
 
 .eyebrow {
@@ -28,8 +30,8 @@ h2 {
   top: 0;
   z-index: 1;
   padding: var(--space-14) var(--section-pad-x);
-  border-bottom: var(--stroke-hairline) solid var(--border-on-ink);
-  background: var(--surface-ink);
+  border-bottom: var(--stroke-hairline) solid var(--border-hairline);
+  background: var(--surface-page);
 }
 
 .bar .container {
@@ -39,28 +41,22 @@ h2 {
   gap: var(--space-20);
 }
 
-.wordmark {
-  color: var(--text-on-ink);
-  text-decoration: none;
-  text-transform: uppercase;
-}
-
+.wordmark,
 .nav {
-  text-transform: uppercase;
-  color: var(--text-on-ink);
+  color: var(--text-strong);
   text-decoration: none;
+  text-transform: uppercase;
 }
 
 /* ---- Sections ---------------------------------------------------------- */
 
 .section + .section {
-  border-top: var(--stroke-hairline) solid var(--border-on-ink);
+  border-top: var(--stroke-hairline) solid var(--border-hairline);
 }
 
 .label {
   display: block;
   margin-bottom: var(--space-6);
-  color: var(--text-on-ink-faint);
 }
 
 .file {
@@ -75,14 +71,13 @@ input,
 select,
 textarea {
   width: 100%;
-  color: var(--text-on-ink);
+  color: var(--text-strong);
   background: var(--surface-ink-raised);
-  border-color: var(--border-on-ink);
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: var(--text-on-ink-faint);
+  color: var(--text-muted);
 }
 
 input[type="url"],
@@ -101,30 +96,30 @@ select option {
   background: var(--paper-bright);
 }
 
-/* ---- Buttons on ink -------------------------------------------------- */
-
-.btn--on-ink {
-  background: var(--surface-ink-raised);
-  color: var(--text-on-ink);
-  border: var(--stroke-hairline) solid var(--border-on-ink);
+/* The secondary button is bark on bark here: a hairline keeps its edge. */
+.btn--secondary {
+  border: var(--stroke-hairline) solid var(--border-hairline);
 }
 
 /* ---- Download: link, profile and button in one row ------------------ */
 
+/* Labels in the first row, controls in the second: the controls stretch to
+   one height whatever their own metrics. */
 .download {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 14rem) auto;
-  gap: var(--space-14);
-  align-items: end;
+  grid-template-rows: auto auto;
+  column-gap: var(--space-14);
 }
 
-.download input,
-.download select,
-.download .btn {
-  height: 50px;
+.download label {
+  display: grid;
+  grid-row: span 2;
+  grid-template-rows: subgrid;
 }
 
 .download .btn {
+  grid-area: 2 / 3;
   white-space: nowrap;
 }
 
@@ -143,7 +138,7 @@ select option {
   margin: 0;
   padding: 0;
   list-style: none;
-  border-top: var(--stroke-hairline) solid var(--border-on-ink);
+  border-top: var(--stroke-hairline) solid var(--border-hairline);
 }
 
 .logs li {
@@ -152,13 +147,13 @@ select option {
   align-items: baseline;
   gap: var(--space-10) var(--space-24);
   padding: var(--space-14) 0;
-  border-bottom: var(--stroke-hairline) solid var(--border-on-ink);
+  border-bottom: var(--stroke-hairline) solid var(--border-hairline);
 }
 
 .logs .label {
   flex: 1 1 10rem;
   margin: 0;
-  color: var(--text-on-ink);
+  color: var(--text-strong);
 }
 
 /* ---- Notices: a status colour, always with a word -------------------- */
@@ -176,7 +171,7 @@ select option {
   padding: var(--space-14) var(--space-20);
   background: var(--surface-ink-raised);
   border-left: var(--stroke-accent) solid var(--status-neutral);
-  color: var(--text-on-ink);
+  color: var(--text-strong);
 }
 
 .notice:last-child {
@@ -185,16 +180,13 @@ select option {
 
 .notice .label {
   margin: 0;
-  color: var(--status-neutral);
 }
 
+/* The status colour marks the edge. Only amber is light enough on bark to
+   colour the word too; the others leave it in the muted tone. */
 .notice--positive { border-left-color: var(--status-positive); }
 .notice--warning { border-left-color: var(--status-warning); }
 .notice--negative { border-left-color: var(--status-negative); }
-/* status-positive and status-negative are marks, too dark for a word on
-   bark; the word keeps the faint paper tone there. */
-.notice--positive .label,
-.notice--negative .label { color: var(--text-on-ink-faint); }
 .notice--warning .label { color: var(--status-warning); }
 
 /* ---- Log page ------------------------------------------------------- */
@@ -208,9 +200,9 @@ pre {
   font: var(--text-meta);
   font-family: var(--font-mono);
   font-weight: 400;
-  color: var(--text-on-ink);
+  color: var(--text-strong);
   background: var(--surface-ink-raised);
-  border: var(--stroke-hairline) solid var(--border-on-ink);
+  border: var(--stroke-hairline) solid var(--border-hairline);
 }
 
 /* ---- Narrow screens: rows become stacks, every item flush ----------- */
@@ -224,6 +216,17 @@ pre {
 @media (max-width: 760px) {
   .download {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    row-gap: var(--space-14);
+  }
+
+  .download label {
+    display: block;
+    grid-row: auto;
+  }
+
+  .download .btn {
+    grid-area: auto;
   }
 
   .download .btn,

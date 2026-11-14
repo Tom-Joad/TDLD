@@ -212,7 +212,7 @@ class HTTPTestCase(ServerTestCase):
         if timeout is not None:
             self.server.Handler.timeout = timeout
         httpd = ThreadingHTTPServer(("127.0.0.1", 0), self.server.Handler)
-        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        threading.Thread(target=httpd.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
         self.addCleanup(httpd.server_close)
         self.addCleanup(httpd.shutdown)
         return httpd.server_address[1]
@@ -239,6 +239,12 @@ class HTTPTestCase(ServerTestCase):
         )
         self.assertIsNotNone(reply)
         return reply
+
+    def get(self, port, path, host="localhost"):
+        reply = self.raw(port, f"GET {path} HTTP/1.0\r\nHost: {host}\r\n\r\n".encode())
+        self.assertIsNotNone(reply)
+        head, _, body = reply.partition(b"\r\n\r\n")
+        return head.decode("latin-1"), body
 
 
 class RequestTests(HTTPTestCase):
@@ -304,18 +310,12 @@ class RequestTests(HTTPTestCase):
     def test_unreadable_config_gets_an_answer(self):
         port = self.start(timeout=5)
         with mock.patch.object(self.server, "try_lock", side_effect=OSError(30, "Read-only file system")):
-            reply = self.raw(port, b"GET / HTTP/1.0\r\nHost: localhost\r\n\r\n")
-        self.assertTrue(reply.startswith(b"HTTP/1.0 500"), reply[:40])
-        self.assertIn(b"could not show the page", reply)
+            head, body = self.get(port, "/")
+        self.assertTrue(head.startswith("HTTP/1.0 500"), head)
+        self.assertIn(b"could not show the page", body)
 
 
 class PageTests(HTTPTestCase):
-    def get(self, port, path, host="localhost"):
-        reply = self.raw(port, f"GET {path} HTTP/1.0\r\nHost: {host}\r\n\r\n".encode())
-        self.assertIsNotNone(reply)
-        head, _, body = reply.partition(b"\r\n\r\n")
-        return head.decode("latin-1"), body
-
     def test_page_fits_phones_and_has_no_inline_style_or_script(self):
         port = self.start(timeout=5)
         head, body = self.get(port, "/")

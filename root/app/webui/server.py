@@ -19,9 +19,12 @@ LISTS = {
     "playlists": "Playlists",
 }
 MAX_BODY_SIZE = 1024 * 1024  # 1 MiB, more than enough for a list of URLs
+# The two logs of a list: file name suffix and kind of run.
+LOG_KINDS = (("", "Scheduled"), ("-manual", "Manual"))
 # Log file -> (list, kind of run).
-LOG_FILES = {f"{key}.log": (label, "Scheduled") for key, label in LISTS.items()}
-LOG_FILES.update({f"{key}-manual.log": (label, "Manual") for key, label in LISTS.items()})
+LOG_FILES = {
+    f"{key}{suffix}.log": (label, kind) for key, label in LISTS.items() for suffix, kind in LOG_KINDS
+}
 LOG_TAIL_LINES = 500
 # How much of the end of a log is read to find those lines.
 LOG_TAIL_BYTES = 1024 * 1024
@@ -78,7 +81,7 @@ PAGE_TEMPLATE = """{head}
           {profile_options}
         </select>
       </label>
-      <button class="btn btn--on-ink" type="submit">Download now</button>
+      <button class="btn btn--secondary" type="submit">Download now</button>
     </form>
   </div>
 </section>
@@ -122,7 +125,7 @@ LOG_ROW_TEMPLATE = """      <li>
 {links}
       </li>"""
 
-LOG_LINK_TEMPLATE = '        <a class="nav" href="/log?name={name}">{kind} →</a>'
+LOG_LINK_TEMPLATE = '        <a class="nav" href="/log?name={key}{suffix}.log">{kind} →</a>'
 
 LOG_PAGE_TEMPLATE = """{head}
 <main class="section">
@@ -300,6 +303,17 @@ def head(title, nav=""):
     return HEAD_TEMPLATE.format(title=title, version=VERSION, nav=nav)
 
 
+# The parts of the main page that never change, built once.
+MAIN_HEAD = head("TDLD")
+PROFILE_OPTIONS = "".join(PROFILE_OPTION_TEMPLATE.format(key=key, label=label) for key, label in LISTS.items())
+LOG_ROWS = "\n".join(
+    LOG_ROW_TEMPLATE.format(label=label, links="\n".join(
+        LOG_LINK_TEMPLATE.format(key=key, suffix=suffix, kind=kind) for suffix, kind in LOG_KINDS
+    ))
+    for key, label in LISTS.items()
+)
+
+
 def stamp(message):
     """A log line: "[YYYY-MM-DD HH:MM:SS] [webui] message"."""
     return f"{time.strftime('[%Y-%m-%d %H:%M:%S]')} [webui] {message}"
@@ -444,39 +458,19 @@ class Handler(BaseHTTPRequestHandler):
             )
             for key, label in LISTS.items()
         )
-        profile_options = "".join(
-            PROFILE_OPTION_TEMPLATE.format(key=key, label=label) for key, label in LISTS.items()
-        )
-        log_rows = "\n".join(
-            LOG_ROW_TEMPLATE.format(label=label, links="\n".join(
-                LOG_LINK_TEMPLATE.format(name=name, kind=kind)
-                for name, (log_label, kind) in LOG_FILES.items() if log_label == label
-            ))
-            for label in LISTS.values()
-        )
         return PAGE_TEMPLATE.format(
-            head=head("TDLD"),
+            head=MAIN_HEAD,
             notices=NOTICES_TEMPLATE.format(notices="\n".join(notices)) if notices else "",
-            fields=fields, profile_options=profile_options, log_rows=log_rows,
+            fields=fields, profile_options=PROFILE_OPTIONS, log_rows=LOG_ROWS,
             tail_lines=LOG_TAIL_LINES,
         ).encode("utf-8")
 
-    def _send_page(self, page):
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(page)
-
-    def _send_static(self, path):
-        """A file of the page's look, if the address names one; 404 otherwise."""
-        if path not in STATIC_FILES:
-            self._refuse(404, "not found")
-            return
-        data, content_type = STATIC_FILES[path]
+    def _send(self, data, content_type="text/html; charset=utf-8", cache=None):
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "max-age=86400")
+        if cache:
+            self.send_header("Cache-Control", cache)
         self.end_headers()
         self.wfile.write(data)
 
@@ -506,7 +500,11 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if path.path.startswith("/static/"):
-            self._send_static(path.path)
+            static = STATIC_FILES.get(path.path)
+            if static is None:
+                self._refuse(404, "not found")
+            else:
+                self._send(*static, cache="max-age=86400")
             return
         flags = {flag for flag, values in parse_qs(path.query).items() if "1" in values}
         try:
@@ -514,7 +512,7 @@ class Handler(BaseHTTPRequestHandler):
         except OSError as e:
             self._fail("show the page", e)
             return
-        self._send_page(page)
+        self._send(page)
 
     def _handle_log_view(self, query):
         name = query.get("name", [""])[0]
@@ -531,7 +529,7 @@ class Handler(BaseHTTPRequestHandler):
             head=head(f"{label} · {kind} log · TDLD", '<a class="nav" href="/">Back to the lists</a>'),
             kind=kind, label=label, name=name, content=content, tail_lines=LOG_TAIL_LINES,
         ).encode("utf-8")
-        self._send_page(page)
+        self._send(page)
 
     def do_POST(self):
         if not self._host_ok():
