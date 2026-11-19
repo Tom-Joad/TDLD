@@ -5,6 +5,12 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
+## [3.4.1] - 2026-11-19
+
+### Security
+- Security updates of the distribution packages, picked up by rebuilding the image:
+  - `libssl3` 3.5.9-r1 (CVE-2026-107496, CVE-2026-88822, CVE-2026-88823, CVE-2026-95691, CVE-2026-95692)
+
 ## [3.4.0] - 2026-11-14
 
 ### Changed
@@ -314,6 +320,7 @@ upgrading**, see "Upgrading from 1.x" in the README.
 ## 07.05.2022
 - Initial release.
 
+[3.4.1]: https://github.com/Tom-Joad/TDLD/compare/v3.4.0...v3.4.1
 [3.4.0]: https://github.com/Tom-Joad/TDLD/compare/v3.3.1...v3.4.0
 [3.3.1]: https://github.com/Tom-Joad/TDLD/compare/v3.3.0...v3.3.1
 [3.3.0]: https://github.com/Tom-Joad/TDLD/compare/v3.2.0...v3.3.0
