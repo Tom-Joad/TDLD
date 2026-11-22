@@ -14,7 +14,7 @@ PUID=$(id -u); PGID=$(id -g)
 
 # shellcheck disable=SC2317,SC2329 # called by the trap below (code differs by shellcheck version)
 cleanup() {
-    docker rm -f "$NAME" "$NAME-bad" "$NAME-link" >/dev/null 2>&1 || true
+    docker rm -f "$NAME" "$NAME-bad" "$NAME-link" "$NAME-mode" >/dev/null 2>&1 || true
     # Some files are written as root; remove them through a container.
     docker run --rm --entrypoint sh -v "$DIR:/w" "$IMAGE" -c 'rm -rf /w/*' >/dev/null 2>&1 || true
     rm -rf "$DIR"
@@ -185,6 +185,24 @@ if docker diff "$NAME-link" | grep -q tdld-smoke-link; then
 else
     echo "ok: init doesn't write through a symlink in /config"
 fi
+
+# A data folder Docker created (root-owned) is handed to abc with the mode
+# UMASK asks for, so the group can delete what the app saves; one that
+# belongs to someone else keeps its owner and its mode. The hotfolder
+# subfolders the init step creates itself get the mode as well.
+MODEDIR=$(mktemp -d -p "$DIR")
+mkdir "$MODEDIR/config" "$MODEDIR/downloads" "$MODEDIR/hotfolder"
+docker run --rm -v "$MODEDIR:/d" --entrypoint sh "$IMAGE" -c \
+    'chown 0:0 /d/downloads && chmod 755 /d/downloads && chown 12345:12345 /d/hotfolder && chmod 750 /d/hotfolder'
+docker run -d --name "$NAME-mode" -e PUID="$PUID" -e PGID="$PGID" -e UMASK=002 \
+    -v "$MODEDIR/config:/config" -v "$MODEDIR/downloads:/downloads" -v "$MODEDIR/hotfolder:/hotfolder" \
+    "$IMAGE" >/dev/null
+wait_for 60 healthy "$NAME-mode" || true
+for want in "/downloads:$PUID 775" "/hotfolder:12345 750" "/hotfolder/input:$PUID 775"; do
+    path=${want%%:*}; expected=${want#*:}
+    got=$(docker exec "$NAME-mode" stat -c '%u %a' "$path")
+    if [[ $got == "$expected" ]]; then echo "ok: $path has owner and mode $got"; else echo "FAILED: $path has '$got', not '$expected'"; fail=1; fi
+done
 
 if docker logs "$NAME" 2>&1 | grep -E 'Permission denied|No such file|fatal'; then
     echo "FAILED: errors in the log"; fail=1
