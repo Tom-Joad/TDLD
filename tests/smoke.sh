@@ -198,10 +198,10 @@ docker run -d --name "$NAME-mode" -e PUID="$PUID" -e PGID="$PGID" -e UMASK=002 \
     -v "$MODEDIR/config:/config" -v "$MODEDIR/downloads:/downloads" -v "$MODEDIR/hotfolder:/hotfolder" \
     "$IMAGE" >/dev/null
 wait_for 60 healthy "$NAME-mode" || true
-mode_of() { docker exec "$NAME-mode" stat -c '%u %a' "$1"; }
 for want in "/downloads:$PUID 775" "/hotfolder:12345 750" "/hotfolder/input:$PUID 775"; do
-    got=$(mode_of "${want%%:*}")
-    if [[ $got == "${want#*:}" ]]; then echo "ok: ${want%%:*} has owner and mode $got"; else echo "FAILED: ${want%%:*} has '$got', not '${want#*:}'"; fail=1; fi
+    path=${want%%:*}; expected=${want#*:}
+    got=$(docker exec "$NAME-mode" stat -c '%u %a' "$path")
+    if [[ $got == "$expected" ]]; then echo "ok: $path has owner and mode $got"; else echo "FAILED: $path has '$got', not '$expected'"; fail=1; fi
 done
 
 if docker logs "$NAME" 2>&1 | grep -E 'Permission denied|No such file|fatal'; then
