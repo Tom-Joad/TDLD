@@ -5,6 +5,16 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
+## [Unreleased]
+
+### Fixed
+- Files the app saved in a folder that Docker had created (`/downloads`,
+  `/hotfolder` and the hotfolder subfolders) could not be deleted or moved
+  by the group, for example over SMB, although `UMASK=002` makes the files
+  group-writable. Those folders now get the mode `UMASK` asks for (`775`
+  with `UMASK=002`). This only affects folders created from now on; for an
+  existing folder run `chmod 775 <folder>` or use Unraid's New Permissions.
+
 ## [3.4.2] - 2026-11-21
 
 ### Changed

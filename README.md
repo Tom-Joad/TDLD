@@ -214,8 +214,8 @@ uid=1000(youruser) gid=1000(youruser) groups=1000(youruser)
 ```
 
 `/config` is handed to that user on every start. `/downloads` and `/hotfolder` are only taken
-over when Docker created them (they belong to root); folders that already belong to someone else
-are left as they are.
+over when Docker created them (they belong to root), and then get the mode `UMASK` asks for
+(`775` with `UMASK=002`); folders that already belong to someone else keep their owner and mode.
 
 ## Upgrading
 
