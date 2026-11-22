@@ -5,7 +5,7 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
-## [Unreleased]
+## [3.4.3] - 2026-11-22
 
 ### Fixed
 - Files the app saved in a folder that Docker had created (`/downloads`,
@@ -340,6 +340,7 @@ upgrading**, see "Upgrading from 1.x" in the README.
 ## 07.05.2022
 - Initial release.
 
+[3.4.3]: https://github.com/Tom-Joad/TDLD/compare/v3.4.2...v3.4.3
 [3.4.2]: https://github.com/Tom-Joad/TDLD/compare/v3.4.1...v3.4.2
 [3.4.1]: https://github.com/Tom-Joad/TDLD/compare/v3.4.0...v3.4.1
 [3.4.0]: https://github.com/Tom-Joad/TDLD/compare/v3.3.1...v3.4.0
