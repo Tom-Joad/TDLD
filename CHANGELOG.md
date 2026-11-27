@@ -5,6 +5,12 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
+## [3.4.5] - 2026-11-27
+
+### Security
+- Security updates of the distribution packages, picked up by rebuilding the image:
+  - `libxml2` 2.13.9-r5 (CVE-2026-11979, CVE-2026-86138, CVE-2026-86139, CVE-2026-86140, CVE-2026-86142, CVE-2026-86143)
+
 ## [3.4.4] - 2026-11-24
 
 ### Security
@@ -346,6 +352,7 @@ upgrading**, see "Upgrading from 1.x" in the README.
 ## 07.05.2022
 - Initial release.
 
+[3.4.5]: https://github.com/Tom-Joad/TDLD/compare/v3.4.4...v3.4.5
 [3.4.4]: https://github.com/Tom-Joad/TDLD/compare/v3.4.3...v3.4.4
 [3.4.3]: https://github.com/Tom-Joad/TDLD/compare/v3.4.2...v3.4.3
 [3.4.2]: https://github.com/Tom-Joad/TDLD/compare/v3.4.1...v3.4.2
