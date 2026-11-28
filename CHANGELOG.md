@@ -5,6 +5,14 @@ All notable changes to this project are listed here. Versions follow
 upgrading (a renamed or removed setting, a different folder layout) only
 comes with a new major version.
 
+## [3.4.6] - 2026-11-28
+
+### Changed
+- Updated dependencies:
+  - certifi from 2026.10.23 to 2026.11.20
+  - yt-dlp from 2026.10.26 to 2026.11.23
+  - charset-normalizer from 3.5.2 to 3.5.3
+
 ## [3.4.5] - 2026-11-27
 
 ### Security
@@ -352,6 +360,7 @@ upgrading**, see "Upgrading from 1.x" in the README.
 ## 07.05.2022
 - Initial release.
 
+[3.4.6]: https://github.com/Tom-Joad/TDLD/compare/v3.4.5...v3.4.6
 [3.4.5]: https://github.com/Tom-Joad/TDLD/compare/v3.4.4...v3.4.5
 [3.4.4]: https://github.com/Tom-Joad/TDLD/compare/v3.4.3...v3.4.4
 [3.4.3]: https://github.com/Tom-Joad/TDLD/compare/v3.4.2...v3.4.3
