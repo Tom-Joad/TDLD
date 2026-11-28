@@ -5,7 +5,7 @@ yt-dlp[default]==2026.10.26
 # the same versions and updates arrive as Dependabot pull requests.
 brotli==1.2.1  # via yt-dlp
 certifi==2026.10.23  # via requests, yt-dlp
-charset-normalizer==3.5.2  # via requests
+charset-normalizer==3.5.3  # via requests
 idna==3.20  # via requests
 mutagen==1.48.1  # via yt-dlp
 pycryptodomex==3.24.2  # via yt-dlp
