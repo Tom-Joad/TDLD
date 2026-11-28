@@ -4,7 +4,7 @@ yt-dlp[default]==2026.11.23
 # What the `default` extra pulls in, pinned as well, so every build installs
 # the same versions and updates arrive as Dependabot pull requests.
 brotli==1.2.1  # via yt-dlp
-certifi==2026.10.23  # via requests, yt-dlp
+certifi==2026.11.20  # via requests, yt-dlp
 charset-normalizer==3.5.3  # via requests
 idna==3.20  # via requests
 mutagen==1.48.1  # via yt-dlp
